@@ -22,6 +22,8 @@ async fn main() -> std::io::Result<()> {
             }))
             .service(home)
             .service(scan)
+            .service(get_files)
+            .service(get_file_by_id)
     })
     .bind(("0.0.0.0", 65421))?
     .run()
@@ -55,6 +57,30 @@ async fn scan(data: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok()
         .content_type("text/plain; charset=utf-8")
         .body(files.concat())
+}
+
+#[get("/files")]
+async fn get_files(data: web::Data<AppState>) -> impl Responder {
+    let audiofiles = data.audiofiles.lock().unwrap();
+    let audiofiles: Vec<String> = audiofiles
+        .iter()
+        .enumerate()
+        .map(|(i, f)| format!("{i}: {f:?}\n"))
+        .collect();
+
+    HttpResponse::Ok()
+        .content_type("text/plain; charset=utf-8")
+        .body(audiofiles.concat())
+}
+
+#[get("/file/{id}")]
+async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<usize>) -> impl Responder {
+    let file_id = path.into_inner();
+    let audiofiles = data.audiofiles.lock().unwrap();
+
+    let file = &audiofiles[file_id];
+
+    HttpResponse::Ok().body(std::fs::read(file).unwrap())
 }
 
 fn is_audiofile(path: std::path::PathBuf) -> bool {
