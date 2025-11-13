@@ -1072,6 +1072,7 @@ name = "subsonic_vault"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "rand",
 ]
 
 [[package]]

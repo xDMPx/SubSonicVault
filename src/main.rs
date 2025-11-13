@@ -1,4 +1,5 @@
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
+use rand::Rng;
 use std::str::FromStr;
 use std::sync::Mutex;
 
@@ -33,15 +34,15 @@ async fn main() -> std::io::Result<()> {
 #[get("/")]
 async fn home(data: web::Data<AppState>) -> impl Responder {
     let audiofiles = data.audiofiles.lock().unwrap();
-    let audiofiles: Vec<String> = audiofiles
-        .iter()
-        .enumerate()
-        .map(|(i, f)| format!("{i}: {f:?}\n"))
-        .collect();
+    let mut rng = rand::rng();
+    let i = rng.random_range(..audiofiles.len());
+
+    let file = &audiofiles[i];
+    let file_ext = file.extension().unwrap();
 
     HttpResponse::Ok()
-        .content_type("text/plain; charset=utf-8")
-        .body(audiofiles.concat())
+        .content_type(extension_to_mime(file_ext))
+        .body(std::fs::read(file).unwrap())
 }
 
 #[get("/scan")]
