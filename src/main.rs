@@ -79,8 +79,11 @@ async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<usize>) -> im
     let audiofiles = data.audiofiles.lock().unwrap();
 
     let file = &audiofiles[file_id];
+    let file_ext = file.extension().unwrap();
 
-    HttpResponse::Ok().body(std::fs::read(file).unwrap())
+    HttpResponse::Ok()
+        .content_type(extension_to_mime(file_ext))
+        .body(std::fs::read(file).unwrap())
 }
 
 fn is_audiofile(path: std::path::PathBuf) -> bool {
@@ -122,4 +125,11 @@ fn traverse_dir(base_dir: &str) -> Vec<std::path::PathBuf> {
     }
 
     return audiofiles;
+}
+
+fn extension_to_mime(file_ext: &std::ffi::OsStr) -> String {
+    match file_ext.to_str().unwrap() {
+        "m4b" | "m4a" => "audio/mp4".to_owned(),
+        ext => format!("audio/{}", ext),
+    }
 }
