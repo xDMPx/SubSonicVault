@@ -1,9 +1,10 @@
-use std::str::FromStr;
-
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
+use std::str::FromStr;
+use std::sync::Mutex;
 
 struct AppState {
     base_dir: String,
+    audiofiles: Mutex<Vec<std::path::PathBuf>>,
 }
 
 #[actix_web::main]
@@ -17,8 +18,10 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(AppState {
                 base_dir: base_dir.clone(),
+                audiofiles: Mutex::new(traverse_dir(&base_dir)),
             }))
             .service(home)
+            .service(scan)
     })
     .bind(("0.0.0.0", 65421))?
     .run()
@@ -27,7 +30,24 @@ async fn main() -> std::io::Result<()> {
 
 #[get("/")]
 async fn home(data: web::Data<AppState>) -> impl Responder {
+    let audiofiles = data.audiofiles.lock().unwrap();
+    let audiofiles: Vec<String> = audiofiles
+        .iter()
+        .enumerate()
+        .map(|(i, f)| format!("{i}: {f:?}\n"))
+        .collect();
+
+    HttpResponse::Ok()
+        .content_type("text/plain; charset=utf-8")
+        .body(audiofiles.concat())
+}
+
+#[get("/scan")]
+async fn scan(data: web::Data<AppState>) -> impl Responder {
     let files = traverse_dir(&data.base_dir);
+    let mut audiofiles = data.audiofiles.lock().unwrap();
+    *audiofiles = files.clone();
+
     let files = files.iter().map(|p| format!("{:?}\n", p));
     let mut files = files.collect::<Vec<String>>();
     files.sort_unstable();
@@ -35,6 +55,26 @@ async fn home(data: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok()
         .content_type("text/plain; charset=utf-8")
         .body(files.concat())
+}
+
+fn is_audiofile(path: std::path::PathBuf) -> bool {
+    if let Some(ext) = path.extension() {
+        if ext == "m4b" {
+            return true;
+        } else if ext == "m4a" {
+            return true;
+        } else if ext == "mp3" {
+            return true;
+        } else if ext == "flac" {
+            return true;
+        } else if ext == "wav" {
+            return true;
+        } else if ext == "opus" {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn traverse_dir(base_dir: &str) -> Vec<std::path::PathBuf> {
@@ -56,24 +96,4 @@ fn traverse_dir(base_dir: &str) -> Vec<std::path::PathBuf> {
     }
 
     return audiofiles;
-}
-
-fn is_audiofile(path: std::path::PathBuf) -> bool {
-    if let Some(ext) = path.extension() {
-        if ext == "m4b" {
-            return true;
-        } else if ext == "m4a" {
-            return true;
-        } else if ext == "mp3" {
-            return true;
-        } else if ext == "flac" {
-            return true;
-        } else if ext == "wav" {
-            return true;
-        } else if ext == "opus" {
-            return true;
-        }
-    }
-
-    false
 }
