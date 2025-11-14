@@ -1,4 +1,4 @@
-use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
+use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware::Logger, web};
 use rand::Rng;
 use std::str::FromStr;
 use std::sync::Mutex;
@@ -10,6 +10,7 @@ struct AppState {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
     let base_dir: String = std::env::args()
         .skip(1)
         .next()
@@ -21,6 +22,7 @@ async fn main() -> std::io::Result<()> {
                 base_dir: base_dir.clone(),
                 audiofiles: Mutex::new(traverse_dir(&base_dir)),
             }))
+            .wrap(Logger::default())
             .service(home)
             .service(scan)
             .service(get_files)
