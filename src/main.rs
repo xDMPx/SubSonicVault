@@ -62,18 +62,31 @@ async fn scan(data: web::Data<AppState>) -> impl Responder {
         .body(files.concat())
 }
 
+#[derive(serde::Serialize)]
+struct AudioFile {
+    id: u64,
+    path: String,
+    mime: String,
+}
+
 #[get("/files")]
 async fn get_files(data: web::Data<AppState>) -> impl Responder {
     let audiofiles = data.audiofiles.lock().unwrap();
-    let audiofiles: Vec<String> = audiofiles
+    let audiofiles: Vec<AudioFile> = audiofiles
         .iter()
         .enumerate()
-        .map(|(i, f)| format!("{i}: {f:?}\n"))
+        .map(|(i, f)| AudioFile {
+            id: i as u64,
+            path: format!("{f:?}"),
+            mime: extension_to_mime(f.extension().unwrap()),
+        })
         .collect();
 
+    let audiofiles_json = serde_json::to_vec(&audiofiles).unwrap();
+
     HttpResponse::Ok()
-        .content_type("text/plain; charset=utf-8")
-        .body(audiofiles.concat())
+        .content_type("application/json; charset=utf-8")
+        .body(audiofiles_json)
 }
 
 #[get("/file/{id}")]
