@@ -41,10 +41,16 @@ async fn home(data: web::Data<AppState>) -> impl Responder {
 
     let file = &audiofiles[i];
     let file_ext = file.extension().unwrap();
+    let file_name = file.file_name().unwrap();
 
     HttpResponse::Ok()
         .content_type(extension_to_mime(file_ext))
         .body(std::fs::read(file).unwrap())
+        .customize()
+        .insert_header((
+            "Content-Disposition",
+            format!("inline; filename*=UTF-8''{}", file_name.to_string_lossy()),
+        ))
 }
 
 #[get("/scan")]
@@ -96,10 +102,19 @@ async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<usize>) -> im
 
     let file = &audiofiles[file_id];
     let file_ext = file.extension().unwrap();
+    let file_name = file.file_name().unwrap();
 
     HttpResponse::Ok()
         .content_type(extension_to_mime(file_ext))
         .body(std::fs::read(file).unwrap())
+        .customize()
+        .insert_header((
+            "Content-Disposition",
+            format!(
+                "attachment; filename*=UTF-8''{}",
+                file_name.to_string_lossy()
+            ),
+        ))
 }
 
 fn is_audiofile(path: std::path::PathBuf) -> bool {
