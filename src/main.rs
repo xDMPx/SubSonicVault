@@ -11,10 +11,33 @@ struct AppState {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
-    let base_dir: String = std::env::args()
-        .skip(1)
-        .next()
-        .expect("Arg with dir location required");
+
+    let options = process_args()
+        .map_err(|err| {
+            match err {
+                Error::InvalidOption(option) => eprintln!("Provided option {option} is invalid"),
+                Error::InvalidOptionsStructure => eprintln!("Invalid input"),
+            }
+            std::process::exit(-1);
+        })
+        .unwrap();
+
+    let port = if let Some(port) = options.iter().find_map(|o| match o {
+        ProgramOption::Port(p) => Some(*p),
+        _ => None,
+    }) {
+        port
+    } else {
+        65421
+    };
+
+    let base_dir = options
+        .iter()
+        .find_map(|o| match o {
+            ProgramOption::BaseDir(path) => Some(path.to_str().unwrap().to_string()),
+            _ => None,
+        })
+        .unwrap();
 
     HttpServer::new(move || {
         App::new()
@@ -28,7 +51,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_files)
             .service(get_file_by_id)
     })
-    .bind(("0.0.0.0", 65421))?
+    .bind(("0.0.0.0", port))?
     .run()
     .await
 }
@@ -110,10 +133,7 @@ async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<usize>) -> im
         .customize()
         .insert_header((
             "Content-Disposition",
-            format!(
-                "attachment; filename*=UTF-8''{}",
-                file_name.to_string_lossy()
-            ),
+            format!("inline; filename*=UTF-8''{}", file_name.to_string_lossy()),
         ))
 }
 
@@ -163,4 +183,44 @@ fn extension_to_mime(file_ext: &std::ffi::OsStr) -> String {
         "m4b" | "m4a" => "audio/mp4".to_owned(),
         ext => format!("audio/{}", ext),
     }
+}
+
+enum ProgramOption {
+    BaseDir(std::path::PathBuf),
+    Port(u16),
+}
+
+#[derive(Debug)]
+enum Error {
+    InvalidOption(String),
+    InvalidOptionsStructure,
+}
+
+fn process_args() -> Result<Vec<ProgramOption>, Error> {
+    let mut options = vec![];
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+
+    let last_arg = args.pop().ok_or(Error::InvalidOptionsStructure)?;
+    let base_dir_path = last_arg;
+    let base_dir_path = std::path::PathBuf::from(base_dir_path);
+    if !base_dir_path.is_dir() {
+        return Err(Error::InvalidOptionsStructure);
+    }
+    options.push(ProgramOption::BaseDir(base_dir_path));
+
+    for arg in args {
+        let arg = match arg.as_str() {
+            s if s.starts_with("--port=") => {
+                if let Some(Ok(port)) = s.split_once('=').map(|(_, s)| s.parse::<u16>()) {
+                    Ok(ProgramOption::Port(port))
+                } else {
+                    Err(Error::InvalidOption(arg))
+                }
+            }
+            _ => Err(Error::InvalidOption(arg)),
+        };
+        options.push(arg?);
+    }
+
+    Ok(options)
 }
