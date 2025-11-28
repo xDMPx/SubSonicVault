@@ -2,7 +2,7 @@ use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware::Logge
 use rand::Rng;
 use std::sync::Mutex;
 use subsonic_vault::{
-    AppState, ProgramOption, extension_to_mime, print_help, process_args, traverse_dir,
+    AppState, AudioFile, ProgramOption, extension_to_mime, print_help, process_args, traverse_dir,
 };
 
 #[actix_web::main]
@@ -43,11 +43,12 @@ async fn main() -> std::io::Result<()> {
         })
         .unwrap();
 
+    let audiofiles = traverse_dir(&base_dir).unwrap();
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(AppState {
                 base_dir: base_dir.clone(),
-                audiofiles: Mutex::new(traverse_dir(&base_dir)),
+                audiofiles: Mutex::new(audiofiles.clone()),
             }))
             .wrap(Logger::default())
             .service(home)
@@ -63,10 +64,12 @@ async fn main() -> std::io::Result<()> {
 #[get("/")]
 async fn home(data: web::Data<AppState>) -> impl Responder {
     let audiofiles = data.audiofiles.lock().unwrap();
+    let audiofiles_len = audiofiles.values().count();
+    let audiofiles = audiofiles.values();
     let mut rng = rand::rng();
-    let i = rng.random_range(..audiofiles.len());
+    let i = rng.random_range(..audiofiles_len);
 
-    let file = &audiofiles[i];
+    let file = audiofiles.skip(i - 1).next().unwrap();
     let file_ext = file.extension().unwrap();
     let file_name = file.file_name().unwrap();
 
@@ -82,11 +85,13 @@ async fn home(data: web::Data<AppState>) -> impl Responder {
 
 #[get("/scan")]
 async fn scan(data: web::Data<AppState>) -> impl Responder {
-    let files = traverse_dir(&data.base_dir);
+    let files = traverse_dir(&data.base_dir).unwrap();
     let mut audiofiles = data.audiofiles.lock().unwrap();
     *audiofiles = files.clone();
 
-    let files = files.iter().map(|p| format!("{:?}\n", p));
+    let files = files
+        .iter()
+        .map(|(k, v)| format!("{}:{:?}\n", hex::encode(k), v));
     let mut files = files.collect::<Vec<String>>();
     files.sort_unstable();
 
@@ -95,21 +100,13 @@ async fn scan(data: web::Data<AppState>) -> impl Responder {
         .body(files.concat())
 }
 
-#[derive(serde::Serialize)]
-struct AudioFile {
-    id: u64,
-    path: String,
-    mime: String,
-}
-
 #[get("/files")]
 async fn get_files(data: web::Data<AppState>) -> impl Responder {
     let audiofiles = data.audiofiles.lock().unwrap();
     let audiofiles: Vec<AudioFile> = audiofiles
         .iter()
-        .enumerate()
-        .map(|(i, f)| AudioFile {
-            id: i as u64,
+        .map(|(hash, f)| AudioFile {
+            id: hex::encode(hash),
             path: format!("{f:?}"),
             mime: extension_to_mime(f.extension().unwrap()),
         })
@@ -123,11 +120,12 @@ async fn get_files(data: web::Data<AppState>) -> impl Responder {
 }
 
 #[get("/file/{id}")]
-async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<usize>) -> impl Responder {
+async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<String>) -> impl Responder {
     let file_id = path.into_inner();
     let audiofiles = data.audiofiles.lock().unwrap();
 
-    let file = &audiofiles[file_id];
+    let hash = hex::decode(file_id).unwrap();
+    let file = &audiofiles[&hash];
     let file_ext = file.extension().unwrap();
     let file_name = file.file_name().unwrap();
 

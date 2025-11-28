@@ -1,14 +1,16 @@
+use md5::{Digest, Md5};
+use std::io::Read;
 use std::str::FromStr;
 use std::sync::Mutex;
 
 pub struct AppState {
     pub base_dir: String,
-    pub audiofiles: Mutex<Vec<std::path::PathBuf>>,
+    pub audiofiles: Mutex<std::collections::HashMap<Vec<u8>, std::path::PathBuf>>,
 }
 
 #[derive(serde::Serialize)]
 pub struct AudioFile {
-    pub id: u64,
+    pub id: String,
     pub path: String,
     pub mime: String,
 }
@@ -46,16 +48,18 @@ pub fn is_audiofile(path: std::path::PathBuf) -> bool {
     false
 }
 
-pub fn traverse_dir(base_dir: &str) -> Vec<std::path::PathBuf> {
+pub fn traverse_dir(
+    base_dir: &str,
+) -> Result<std::collections::HashMap<Vec<u8>, std::path::PathBuf>, HashError> {
     let mut dir_list = vec![std::path::PathBuf::from_str(base_dir).unwrap()];
-    let mut audiofiles = Vec::new();
+    let mut audiofiles_paths = Vec::new();
     while dir_list.len() > 0 {
         let entries = std::fs::read_dir(dir_list.pop().unwrap()).unwrap();
         for entry in entries {
             if let Ok(file) = entry {
                 if let Ok(file_type) = file.file_type() {
                     if file_type.is_file() && is_audiofile(file.path()) {
-                        audiofiles.push(file.path());
+                        audiofiles_paths.push(file.path());
                     } else if file_type.is_dir() {
                         dir_list.push(file.path());
                     }
@@ -64,7 +68,12 @@ pub fn traverse_dir(base_dir: &str) -> Vec<std::path::PathBuf> {
         }
     }
 
-    return audiofiles;
+    let mut audiofiles = std::collections::HashMap::new();
+    for path in audiofiles_paths {
+        audiofiles.insert(md5_hash(&path)?, path);
+    }
+
+    Ok(audiofiles)
 }
 
 pub fn extension_to_mime(file_ext: &std::ffi::OsStr) -> String {
@@ -114,4 +123,30 @@ pub fn print_help() {
     println!("Options:");
     println!("\t --help");
     println!("\t --port=<u16>");
+}
+
+#[derive(Debug)]
+pub struct HashError {
+    path: std::path::PathBuf,
+    error: std::io::Error,
+}
+
+fn md5_hash(path: &std::path::Path) -> Result<Vec<u8>, HashError> {
+    let mut hasher = Md5::new();
+
+    let mut file = std::fs::File::open(path).map_err(|e| HashError {
+        path: path.to_owned(),
+        error: e,
+    })?;
+
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf).map_err(|e| HashError {
+        path: path.to_owned(),
+        error: e,
+    })?;
+    hasher.update(buf);
+
+    let hash = hasher.finalize();
+
+    Ok(hash.to_vec())
 }
