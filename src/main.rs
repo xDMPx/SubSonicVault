@@ -1,7 +1,9 @@
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware::Logger, web};
 use rand::Rng;
 use std::sync::Mutex;
-use subsonic_vault::{AppState, ProgramOption, extension_to_mime, process_args, traverse_dir};
+use subsonic_vault::{
+    AppState, ProgramOption, extension_to_mime, print_help, process_args, traverse_dir,
+};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -15,9 +17,14 @@ async fn main() -> std::io::Result<()> {
                 }
                 subsonic_vault::Error::InvalidOptionsStructure => eprintln!("Invalid input"),
             }
+            print_help();
             std::process::exit(-1);
         })
         .unwrap();
+    if options.contains(&ProgramOption::PrintHelp) {
+        print_help();
+        std::process::exit(-1);
+    }
 
     let port = if let Some(port) = options.iter().find_map(|o| match o {
         ProgramOption::Port(p) => Some(*p),

@@ -13,9 +13,11 @@ pub struct AudioFile {
     pub mime: String,
 }
 
+#[derive(PartialEq)]
 pub enum ProgramOption {
     BaseDir(std::path::PathBuf),
     Port(u16),
+    PrintHelp,
 }
 
 #[derive(Debug)]
@@ -77,15 +79,20 @@ pub fn process_args() -> Result<Vec<ProgramOption>, Error> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
 
     let last_arg = args.pop().ok_or(Error::InvalidOptionsStructure)?;
-    let base_dir_path = last_arg;
-    let base_dir_path = std::path::PathBuf::from(base_dir_path);
-    if !base_dir_path.is_dir() {
-        return Err(Error::InvalidOptionsStructure);
+    if last_arg != "--help" {
+        let base_dir_path = last_arg;
+        let base_dir_path = std::path::PathBuf::from(base_dir_path);
+        if !base_dir_path.is_dir() {
+            return Err(Error::InvalidOptionsStructure);
+        }
+        options.push(ProgramOption::BaseDir(base_dir_path));
+    } else {
+        args.push(last_arg);
     }
-    options.push(ProgramOption::BaseDir(base_dir_path));
 
     for arg in args {
         let arg = match arg.as_str() {
+            "--help" => Ok(ProgramOption::PrintHelp),
             s if s.starts_with("--port=") => {
                 if let Some(Ok(port)) = s.split_once('=').map(|(_, s)| s.parse::<u16>()) {
                     Ok(ProgramOption::Port(port))
@@ -99,4 +106,12 @@ pub fn process_args() -> Result<Vec<ProgramOption>, Error> {
     }
 
     Ok(options)
+}
+
+pub fn print_help() {
+    println!("Usage: {} [OPTIONS] DIRECTORY", env!("CARGO_PKG_NAME"));
+    println!("       {} --help", env!("CARGO_PKG_NAME"));
+    println!("Options:");
+    println!("\t --help");
+    println!("\t --port=<u16>");
 }
