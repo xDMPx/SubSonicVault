@@ -1,12 +1,7 @@
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware::Logger, web};
 use rand::Rng;
-use std::str::FromStr;
 use std::sync::Mutex;
-
-struct AppState {
-    base_dir: String,
-    audiofiles: Mutex<Vec<std::path::PathBuf>>,
-}
+use subsonic_vault::{AppState, ProgramOption, extension_to_mime, process_args, traverse_dir};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -15,8 +10,10 @@ async fn main() -> std::io::Result<()> {
     let options = process_args()
         .map_err(|err| {
             match err {
-                Error::InvalidOption(option) => eprintln!("Provided option {option} is invalid"),
-                Error::InvalidOptionsStructure => eprintln!("Invalid input"),
+                subsonic_vault::Error::InvalidOption(option) => {
+                    eprintln!("Provided option {option} is invalid")
+                }
+                subsonic_vault::Error::InvalidOptionsStructure => eprintln!("Invalid input"),
             }
             std::process::exit(-1);
         })
@@ -135,92 +132,4 @@ async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<usize>) -> im
             "Content-Disposition",
             format!("inline; filename*=UTF-8''{}", file_name.to_string_lossy()),
         ))
-}
-
-fn is_audiofile(path: std::path::PathBuf) -> bool {
-    if let Some(ext) = path.extension() {
-        if ext == "m4b" {
-            return true;
-        } else if ext == "m4a" {
-            return true;
-        } else if ext == "mp3" {
-            return true;
-        } else if ext == "flac" {
-            return true;
-        } else if ext == "wav" {
-            return true;
-        } else if ext == "opus" {
-            return true;
-        }
-    }
-
-    false
-}
-
-fn traverse_dir(base_dir: &str) -> Vec<std::path::PathBuf> {
-    let mut dir_list = vec![std::path::PathBuf::from_str(base_dir).unwrap()];
-    let mut audiofiles = Vec::new();
-    while dir_list.len() > 0 {
-        let entries = std::fs::read_dir(dir_list.pop().unwrap()).unwrap();
-        for entry in entries {
-            if let Ok(file) = entry {
-                if let Ok(file_type) = file.file_type() {
-                    if file_type.is_file() && is_audiofile(file.path()) {
-                        audiofiles.push(file.path());
-                    } else if file_type.is_dir() {
-                        dir_list.push(file.path());
-                    }
-                }
-            }
-        }
-    }
-
-    return audiofiles;
-}
-
-fn extension_to_mime(file_ext: &std::ffi::OsStr) -> String {
-    match file_ext.to_str().unwrap() {
-        "m4b" | "m4a" => "audio/mp4".to_owned(),
-        ext => format!("audio/{}", ext),
-    }
-}
-
-enum ProgramOption {
-    BaseDir(std::path::PathBuf),
-    Port(u16),
-}
-
-#[derive(Debug)]
-enum Error {
-    InvalidOption(String),
-    InvalidOptionsStructure,
-}
-
-fn process_args() -> Result<Vec<ProgramOption>, Error> {
-    let mut options = vec![];
-    let mut args: Vec<String> = std::env::args().skip(1).collect();
-
-    let last_arg = args.pop().ok_or(Error::InvalidOptionsStructure)?;
-    let base_dir_path = last_arg;
-    let base_dir_path = std::path::PathBuf::from(base_dir_path);
-    if !base_dir_path.is_dir() {
-        return Err(Error::InvalidOptionsStructure);
-    }
-    options.push(ProgramOption::BaseDir(base_dir_path));
-
-    for arg in args {
-        let arg = match arg.as_str() {
-            s if s.starts_with("--port=") => {
-                if let Some(Ok(port)) = s.split_once('=').map(|(_, s)| s.parse::<u16>()) {
-                    Ok(ProgramOption::Port(port))
-                } else {
-                    Err(Error::InvalidOption(arg))
-                }
-            }
-            _ => Err(Error::InvalidOption(arg)),
-        };
-        options.push(arg?);
-    }
-
-    Ok(options)
 }
