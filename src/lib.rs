@@ -1,5 +1,5 @@
 use md5::{Digest, Md5};
-use std::io::Read;
+use std::io::{Read, Seek};
 use std::str::FromStr;
 use std::sync::Mutex;
 
@@ -131,6 +131,8 @@ pub struct HashError {
     error: std::io::Error,
 }
 
+const BUF_SIZE: usize = 1024 * 1024;
+
 fn md5_hash(path: &std::path::Path) -> Result<Vec<u8>, HashError> {
     let mut hasher = Md5::new();
 
@@ -138,6 +140,26 @@ fn md5_hash(path: &std::path::Path) -> Result<Vec<u8>, HashError> {
         path: path.to_owned(),
         error: e,
     })?;
+    let mut buf: Vec<u8> = vec![0; BUF_SIZE];
+    while file
+        .metadata()
+        .map_err(|e| HashError {
+            path: path.to_owned(),
+            error: e,
+        })?
+        .len()
+        - file.stream_position().map_err(|e| HashError {
+            path: path.to_owned(),
+            error: e,
+        })?
+        > BUF_SIZE as u64
+    {
+        file.read_exact(&mut buf).map_err(|e| HashError {
+            path: path.to_owned(),
+            error: e,
+        })?;
+        hasher.update(&buf);
+    }
 
     let mut buf = Vec::new();
     file.read_to_end(&mut buf).map_err(|e| HashError {
