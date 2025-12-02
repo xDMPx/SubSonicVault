@@ -69,8 +69,30 @@ pub fn traverse_dir(
     }
 
     let mut audiofiles = std::collections::HashMap::new();
+    let audiofiles_paths_len = audiofiles_paths.len();
+    let workers = std::thread::available_parallelism()
+        .map(|x| x.get())
+        .unwrap_or(2)
+        - 1;
+
+    let mut handles = vec![];
+    for _ in 0..workers {
+        let split_index = audiofiles_paths.len() - (audiofiles_paths_len / (workers));
+        let chunk = audiofiles_paths.split_off(split_index);
+        let handle = std::thread::spawn(|| {
+            let mut audiofiles = vec![];
+            for path in chunk {
+                audiofiles.push((md5_hash(&path).unwrap(), path));
+            }
+            audiofiles
+        });
+        handles.push(handle);
+    }
     for path in audiofiles_paths {
-        audiofiles.insert(md5_hash(&path)?, path);
+        audiofiles.insert(md5_hash(&path).unwrap(), path);
+    }
+    for handle in handles {
+        audiofiles.extend(handle.join().unwrap());
     }
 
     Ok(audiofiles)
