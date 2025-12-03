@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 pub struct AppState {
     pub base_dir: String,
-    pub audiofiles: Mutex<std::collections::HashMap<Vec<u8>, std::path::PathBuf>>,
+    pub audiofiles: Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
 }
 
 #[derive(serde::Serialize)]
@@ -50,7 +50,7 @@ pub fn is_audiofile(path: std::path::PathBuf) -> bool {
 
 pub fn traverse_dir(
     base_dir: &str,
-) -> Result<std::collections::HashMap<Vec<u8>, std::path::PathBuf>, HashError> {
+) -> Result<std::collections::HashMap<String, std::path::PathBuf>, HashError> {
     let mut dir_list = vec![std::path::PathBuf::from_str(base_dir).unwrap()];
     let mut audiofiles_paths = Vec::new();
     while dir_list.len() > 0 {
@@ -82,14 +82,14 @@ pub fn traverse_dir(
         let handle = std::thread::spawn(|| {
             let mut audiofiles = vec![];
             for path in chunk {
-                audiofiles.push((md5_hash(&path).unwrap(), path));
+                audiofiles.push((hex::encode(md5_hash(&path).unwrap()), path));
             }
             audiofiles
         });
         handles.push(handle);
     }
     for path in audiofiles_paths {
-        audiofiles.insert(md5_hash(&path).unwrap(), path);
+        audiofiles.insert(hex::encode(md5_hash(&path).unwrap()), path);
     }
     for handle in handles {
         audiofiles.extend(handle.join().unwrap());

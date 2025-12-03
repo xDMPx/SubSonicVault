@@ -89,9 +89,7 @@ async fn scan(data: web::Data<AppState>) -> impl Responder {
     let mut audiofiles = data.audiofiles.lock().unwrap();
     *audiofiles = files.clone();
 
-    let files = files
-        .iter()
-        .map(|(k, v)| format!("{}:{:?}\n", hex::encode(k), v));
+    let files = files.iter().map(|(k, v)| format!("{}:{:?}\n", k, v));
     let mut files = files.collect::<Vec<String>>();
     files.sort_unstable();
 
@@ -106,7 +104,7 @@ async fn get_files(data: web::Data<AppState>) -> impl Responder {
     let audiofiles: Vec<AudioFile> = audiofiles
         .iter()
         .map(|(hash, f)| AudioFile {
-            id: hex::encode(hash),
+            id: hash.to_owned(),
             path: format!("{f:?}"),
             mime: extension_to_mime(f.extension().unwrap()),
         })
@@ -121,10 +119,9 @@ async fn get_files(data: web::Data<AppState>) -> impl Responder {
 
 #[get("/file/{id}")]
 async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<String>) -> impl Responder {
-    let file_id = path.into_inner();
+    let hash = path.into_inner();
     let audiofiles = data.audiofiles.lock().unwrap();
 
-    let hash = hex::decode(file_id).unwrap();
     let file = &audiofiles[&hash];
     let file_ext = file.extension().unwrap();
     let file_name = file.file_name().unwrap();
