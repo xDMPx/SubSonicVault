@@ -82,14 +82,14 @@ pub fn traverse_dir(
         let handle = std::thread::spawn(|| {
             let mut audiofiles = vec![];
             for path in chunk {
-                audiofiles.push((hex::encode(md5_hash(&path).unwrap()), path));
+                audiofiles.push((hex_encode(md5_hash(&path).unwrap()), path));
             }
             audiofiles
         });
         handles.push(handle);
     }
     for path in audiofiles_paths {
-        audiofiles.insert(hex::encode(md5_hash(&path).unwrap()), path);
+        audiofiles.insert(hex_encode(md5_hash(&path).unwrap()), path);
     }
     for handle in handles {
         audiofiles.extend(handle.join().unwrap());
@@ -193,4 +193,8 @@ fn md5_hash(path: &std::path::Path) -> Result<Vec<u8>, HashError> {
     let hash = hasher.finalize();
 
     Ok(hash.to_vec())
+}
+
+fn hex_encode(hash: Vec<u8>) -> String {
+    hash.iter().map(|x| format!("{:02x}", x)).collect()
 }
