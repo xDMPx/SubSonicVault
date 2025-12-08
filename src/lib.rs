@@ -68,32 +68,39 @@ pub fn traverse_dir(
         }
     }
 
-    let mut audiofiles = std::collections::HashMap::new();
     let audiofiles_paths_len = audiofiles_paths.len();
     let workers = std::thread::available_parallelism()
         .map(|x| x.get())
         .unwrap_or(2)
         - 1;
 
-    let mut handles = vec![];
-    for _ in 0..workers {
-        let split_index = audiofiles_paths.len() - (audiofiles_paths_len / (workers));
-        let chunk = audiofiles_paths.split_off(split_index);
-        let handle = std::thread::spawn(|| {
-            let mut audiofiles = vec![];
-            for path in chunk {
-                audiofiles.push((hex_encode(md5_hash(&path).unwrap()), path));
-            }
-            audiofiles
-        });
-        handles.push(handle);
-    }
-    for path in audiofiles_paths {
-        audiofiles.insert(hex_encode(md5_hash(&path).unwrap()), path);
-    }
-    for handle in handles {
-        audiofiles.extend(handle.join().unwrap());
-    }
+    let duration = std::time::SystemTime::now();
+    let audiofiles = crossbeam::scope(|scope| {
+        let mut audiofiles = std::collections::HashMap::new();
+
+        let mut handles = vec![];
+        for _ in 0..workers {
+            let split_index = audiofiles_paths.len() - (audiofiles_paths_len / (workers));
+            let chunk = audiofiles_paths.split_off(split_index);
+            let handle = scope.spawn(move |_| {
+                let mut audiofiles = vec![];
+                for path in chunk {
+                    audiofiles.push((hex_encode(md5_hash(&path).unwrap()), path));
+                }
+                audiofiles
+            });
+            handles.push(handle);
+        }
+        for path in audiofiles_paths {
+            audiofiles.insert(hex_encode(md5_hash(&path).unwrap()), path);
+        }
+        for handle in handles {
+            audiofiles.extend(handle.join().unwrap());
+        }
+        audiofiles
+    })
+    .unwrap();
+    println!("{:?}", duration.elapsed().unwrap().as_secs_f64());
 
     Ok(audiofiles)
 }
