@@ -15,6 +15,12 @@ pub struct AudioFile {
     pub mime: String,
 }
 
+#[derive(serde::Serialize)]
+pub struct PingResponse {
+    pub status: String,
+    pub version: String,
+}
+
 #[derive(PartialEq)]
 pub enum ProgramOption {
     BaseDir(std::path::PathBuf),

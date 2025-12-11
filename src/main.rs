@@ -2,7 +2,8 @@ use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware::Logge
 use rand::Rng;
 use std::sync::Mutex;
 use subsonic_vault::{
-    AppState, AudioFile, ProgramOption, extension_to_mime, print_help, process_args, traverse_dir,
+    AppState, AudioFile, PingResponse, ProgramOption, extension_to_mime, print_help, process_args,
+    traverse_dir,
 };
 
 #[actix_web::main]
@@ -55,6 +56,7 @@ async fn main() -> std::io::Result<()> {
             .service(scan)
             .service(get_files)
             .service(get_file_by_id)
+            .service(ping)
     })
     .bind(("0.0.0.0", port))?
     .run()
@@ -134,4 +136,17 @@ async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<String>) -> i
             "Content-Disposition",
             format!("inline; filename*=UTF-8''{}", file_name.to_string_lossy()),
         ))
+}
+
+#[get("/ping")]
+async fn ping() -> impl Responder {
+    let body = serde_json::to_vec(&PingResponse {
+        status: "ok".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+    })
+    .unwrap();
+
+    HttpResponse::Ok()
+        .content_type("application/json; charset=utf-8")
+        .body(body)
 }
