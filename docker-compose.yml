@@ -1,0 +1,7 @@
+services:
+  subsonicvault:
+    build: .
+    ports:
+      - "65421:65421"
+    volumes:
+      - ~/Music:/vault
