@@ -63,10 +63,10 @@ pub fn traverse_dir(
         let entries = std::fs::read_dir(dir_list.pop().unwrap()).unwrap();
         for entry in entries {
             if let Ok(file) = entry {
-                if let Ok(file_type) = file.file_type() {
-                    if file_type.is_file() && is_audiofile(file.path()) {
+                if let Ok(metadata) = std::fs::metadata(file.path()) {
+                    if metadata.is_file() && is_audiofile(file.path()) {
                         audiofiles_paths.push(file.path());
-                    } else if file_type.is_dir() {
+                    } else if metadata.is_dir() {
                         dir_list.push(file.path());
                     }
                 }
