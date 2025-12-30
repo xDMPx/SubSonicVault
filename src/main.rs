@@ -44,12 +44,14 @@ async fn main() -> std::io::Result<()> {
         })
         .unwrap();
 
-    let audiofiles = traverse_dir(&base_dir).unwrap();
+    let cache = std::collections::HashMap::new();
+    let (audiofiles, cache) = traverse_dir(&base_dir, cache).unwrap();
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(AppState {
                 base_dir: base_dir.clone(),
                 audiofiles: Mutex::new(audiofiles.clone()),
+                hashing_cache: Mutex::new(cache.clone()),
             }))
             .wrap(Logger::default())
             .service(home)
@@ -87,9 +89,11 @@ async fn home(data: web::Data<AppState>) -> impl Responder {
 
 #[get("/scan")]
 async fn scan(data: web::Data<AppState>) -> impl Responder {
-    let files = traverse_dir(&data.base_dir).unwrap();
+    let mut cache = data.hashing_cache.lock().unwrap();
+    let (files, updated_cache) = traverse_dir(&data.base_dir, cache.clone()).unwrap();
     let mut audiofiles = data.audiofiles.lock().unwrap();
     *audiofiles = files.clone();
+    *cache = updated_cache;
 
     let files = files.iter().map(|(k, v)| format!("{}:{:?}\n", k, v));
     let mut files = files.collect::<Vec<String>>();

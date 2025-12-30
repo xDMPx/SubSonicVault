@@ -6,6 +6,13 @@ use std::sync::Mutex;
 pub struct AppState {
     pub base_dir: String,
     pub audiofiles: Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
+    pub hashing_cache: Mutex<std::collections::HashMap<std::path::PathBuf, CachedFileHash>>,
+}
+
+#[derive(Clone)]
+pub struct CachedFileHash {
+    pub hash: String,
+    pub mod_date: std::time::SystemTime,
 }
 
 #[derive(serde::Serialize)]
@@ -56,7 +63,14 @@ pub fn is_audiofile(path: std::path::PathBuf) -> bool {
 
 pub fn traverse_dir(
     base_dir: &str,
-) -> Result<std::collections::HashMap<String, std::path::PathBuf>, HashError> {
+    mut cache: std::collections::HashMap<std::path::PathBuf, CachedFileHash>,
+) -> Result<
+    (
+        std::collections::HashMap<String, std::path::PathBuf>,
+        std::collections::HashMap<std::path::PathBuf, CachedFileHash>,
+    ),
+    HashError,
+> {
     let mut dir_list = vec![std::path::PathBuf::from_str(base_dir).unwrap()];
     let mut audiofiles_paths = Vec::new();
     while dir_list.len() > 0 {
@@ -74,14 +88,34 @@ pub fn traverse_dir(
         }
     }
 
+    let duration = std::time::SystemTime::now();
+    let mut cached: std::collections::HashMap<String, std::path::PathBuf> =
+        std::collections::HashMap::new();
+
+    let mut audiofiles_paths = audiofiles_paths
+        .into_iter()
+        .filter(|path| {
+            if let Some(fhc) = cache.get(path) {
+                let metadata = std::fs::metadata(path).unwrap();
+                if fhc.mod_date == metadata.modified().unwrap() {
+                    cached.insert(fhc.hash.clone(), path.clone());
+                    false
+                } else {
+                    true
+                }
+            } else {
+                true
+            }
+        })
+        .collect::<Vec<std::path::PathBuf>>();
+
     let audiofiles_paths_len = audiofiles_paths.len();
     let workers = std::thread::available_parallelism()
         .map(|x| x.get())
         .unwrap_or(2)
         - 1;
 
-    let duration = std::time::SystemTime::now();
-    let audiofiles = crossbeam::scope(|scope| {
+    let mut audiofiles = crossbeam::scope(|scope| {
         let mut audiofiles = std::collections::HashMap::new();
 
         let mut handles = vec![];
@@ -103,12 +137,24 @@ pub fn traverse_dir(
         for handle in handles {
             audiofiles.extend(handle.join().unwrap());
         }
+
         audiofiles
     })
     .unwrap();
+    for (hash, path) in audiofiles.iter() {
+        let metadata = std::fs::metadata(path).unwrap();
+        cache.insert(
+            path.to_path_buf(),
+            CachedFileHash {
+                hash: hash.clone(),
+                mod_date: metadata.modified().unwrap(),
+            },
+        );
+    }
+    audiofiles.extend(cached);
     println!("{:?}", duration.elapsed().unwrap().as_secs_f64());
 
-    Ok(audiofiles)
+    Ok((audiofiles, cache))
 }
 
 pub fn extension_to_mime(file_ext: &std::ffi::OsStr) -> String {
