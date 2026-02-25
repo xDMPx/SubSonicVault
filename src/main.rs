@@ -59,6 +59,8 @@ async fn main() -> std::io::Result<()> {
             .service(get_files)
             .service(get_file_by_id)
             .service(ping)
+            .service(actix_files::Files::new("/player", "./player/dist").index_file("index.html"))
+            .service(actix_files::Files::new("/assets", "./player/dist/assets"))
     })
     .bind(("0.0.0.0", port))?
     .run()
