@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import './App.css'
 import music_video_svg from './assets/music_video_128dp_E3E3E3_FILL0_wght400_GRAD0_opsz48.svg'
 import pause_svg from './assets/pause_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'
 import play_svg from './assets/play_arrow_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'
+import play_next_svg from './assets/skip_next_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'
 import axios from 'axios'
 
 function App() {
@@ -63,9 +64,15 @@ function App() {
                         <p className="text-left">{position}</p>
                         <p className="text-right">{Math.ceil(duration)}</p>
                     </div>
-                    <button className="btn btn-primary btn-xl btn-circle mx-auto" onClick={() => setIsPlaying((is_playing) => !is_playing)}>
-                        <PlayPauseButtonIcon is_playing={is_playing} />
-                    </button>
+                    <div className="relative flex items-center justify-center gap-1">
+                        <div className="w-10" />
+                        <button className="btn btn-primary btn-xl btn-circle" onClick={() => setIsPlaying((is_playing) => !is_playing)}>
+                            <PlayPauseButtonIcon is_playing={is_playing} />
+                        </button>
+                        <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayNextClick(audio_ref, played++)}>
+                            <img src={play_next_svg} alt='play next icon' width="38" />
+                        </button>
+                    </div>
                 </div>
             </div>
         </>
@@ -90,6 +97,15 @@ async function fetchRandomAudioFile(played: number): Promise<string> {
     const href = window.URL.createObjectURL(response.data);
 
     return href
+}
+
+async function onPlayNextClick(audio_ref: RefObject<HTMLAudioElement | null>, played: number) {
+    fetchRandomAudioFile(played).then(href => {
+        if (audio_ref.current === null) return
+        window.URL.revokeObjectURL(audio_ref.current.src)
+        audio_ref.current.src = href
+        audio_ref.current.play()
+    })
 }
 
 export default App
