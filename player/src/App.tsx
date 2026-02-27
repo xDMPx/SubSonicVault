@@ -15,6 +15,12 @@ function App() {
     const [is_playing, setIsPlaying] = useState(false)
 
     useEffect(() => {
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+            onPlayNextClick(audio_ref, played++)
+        })
+    }, [])
+
+    useEffect(() => {
         fetchRandomAudioFile(played).then(href => {
             if (audio_ref.current === null) return
             audio_ref.current.src = href
