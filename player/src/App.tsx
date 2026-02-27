@@ -36,7 +36,7 @@ function App() {
     }, [is_playing, audio_ref])
     useEffect(() => {
         if (audio_ref.current !== null) {
-            audio_ref.current.onloadeddata = () => {
+            audio_ref.current.onloadedmetadata = () => {
                 setDuration(audio_ref.current!.duration)
             }
             audio_ref.current.ontimeupdate = () => {
@@ -65,10 +65,10 @@ function App() {
                 </figure>
                 <div className="card-body">
                     <h2 className="card-title mx-auto">{title}</h2>
-                    <input type="range" min="0.0" value={position} max={duration} className="range range-xs" onChange={(e) => { setPosition(+e.target.value) }} />
-                    <div className="flex">
-                        <p className="text-left">{position}</p>
-                        <p className="text-right">{Math.ceil(duration)}</p>
+                    <input type="range" min="0.0" value={position} max={duration} className="range range-xs w-full" onChange={(e) => { setPosition(+e.target.value) }} />
+                    <div className="flex w-full">
+                        <p className="text-left">{toHHMMSS(position)}</p>
+                        <p className="text-right">{toHHMMSS(Math.ceil(duration))}</p>
                     </div>
                     <div className="relative flex items-center justify-center gap-1">
                         <div className="w-10" />
@@ -96,7 +96,7 @@ function PlayPauseButtonIcon({ is_playing }: { is_playing: boolean }) {
 async function fetchRandomAudioFile(played: number): Promise<string> {
     const response = await axios({
         method: 'get',
-        url: `/?${played}`,
+        url: `http://localhost:65421/?${played}`,
         responseType: 'blob'
     })
 
@@ -112,6 +112,21 @@ async function onPlayNextClick(audio_ref: RefObject<HTMLAudioElement | null>, pl
         audio_ref.current.src = href
         audio_ref.current.play()
     })
+}
+
+function toHHMMSS(sec: number): string {
+    if (sec < 0) return "00:00"
+
+    const s = sec % 60
+    const m = Math.floor(sec % 3600 / 60)
+    const h = Math.floor(sec / 3600)
+
+    const ss = String(s).padStart(2, '0')
+    const mm = String(m).padStart(2, '0')
+    const hh = String(h).padStart(2, '0')
+
+    if (h == 0) return `${mm}:${ss}`
+    return `${hh}:${mm}:${ss}`
 }
 
 export default App
