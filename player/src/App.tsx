@@ -7,15 +7,39 @@ import play_next_svg from './assets/skip_next_24dp_E3E3E3_FILL0_wght400_GRAD0_op
 import play_prev_svg from './assets/skip_previous_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import axios from 'axios';
 
+import mediaInfoFactory from 'mediainfo.js';
+import type { MediaInfo, MediaInfoResult } from 'mediainfo.js';
+import mediaInfoWasmUrl from 'mediainfo.js/MediaInfoModule.wasm?url';
+
 function App() {
     let played = 0;
     let load_audio = true;
 
-    const audio_ref = useRef<HTMLAudioElement>(null);;
-    const [title, _setTitle] = useState("Audio title");
+    const audio_ref = useRef<HTMLAudioElement>(null);
+    const mediaInfoRef = useRef<MediaInfo<'object'> | null>(null);
+    const [title, setTitle] = useState("Audio title");
     const [position, setPosition] = useState(0.0);
     const [duration, setDuration] = useState(1.0);
     const [is_playing, setIsPlaying] = useState(false);
+
+    useEffect(() => {
+        mediaInfoFactory({
+            format: 'object',
+            locateFile: (path, prefix) =>
+                path === 'MediaInfoModule.wasm' ? mediaInfoWasmUrl : `${prefix}${path}`,
+        }).then((mi) => {
+            mediaInfoRef.current = mi;
+        }).catch((error: unknown) => {
+            console.error("mediaInfoFactory Error");
+            console.error(error);
+        });
+
+        return () => {
+            if (mediaInfoRef.current) {
+                mediaInfoRef.current.close()
+            }
+        };
+    }, []);
 
     useEffect(() => {
         navigator.mediaSession.setActionHandler('nexttrack', () => {
@@ -32,6 +56,7 @@ function App() {
     }, [is_playing, audio_ref]);
     useEffect(() => {
         if (audio_ref.current === null) return;
+
         if (load_audio) {
             load_audio = false;
             fetchRandomAudioFile(played).then(href => {
@@ -39,8 +64,15 @@ function App() {
                 audio_ref.current.src = href
             });
         }
+
         audio_ref.current.onloadedmetadata = () => {
             setDuration(audio_ref.current!.duration);
+            getMetadataFromBlob(mediaInfoRef, audio_ref.current!.src).then(metadata => {
+                if (metadata === undefined) return;
+                const title = metadata.media?.track.at(0)?.Title;
+                if (title === undefined) return;
+                setTitle(title);
+            });
         }
         audio_ref.current.ontimeupdate = () => {
             setPosition(Math.ceil(audio_ref.current!.currentTime));
@@ -100,7 +132,7 @@ function PlayPauseButtonIcon({ is_playing }: { is_playing: boolean }) {
 async function fetchRandomAudioFile(played: number): Promise<string> {
     const response = await axios({
         method: 'get',
-        url: `/?${played}`,
+        url: `http://localhost:65421/?${played}`,
         responseType: 'blob'
     });
 
@@ -136,6 +168,25 @@ function toHHMMSS(sec: number): string {
 
     if (h == 0) return `${mm}:${ss}`;
     return `${hh}:${mm}:${ss}`;
+}
+
+async function getMetadataFromBlob(media_info_ref: RefObject<MediaInfo<"object"> | null>, blob_href: string): Promise<MediaInfoResult | void> {
+    const blob = await fetch(blob_href).then((r) => r.blob());
+    const readChunk = async (chunkSize: number, offset: number): Promise<Uint8Array> => {
+        const end = Math.min(offset + chunkSize, blob.size);
+        const slice = blob.slice(offset, end);
+        const arrayBuffer = await slice.arrayBuffer();
+        return new Uint8Array(arrayBuffer);
+    };
+
+    if (media_info_ref.current === null) return;
+    const res = await media_info_ref.current
+        .analyzeData(blob.size, readChunk)
+        .catch((error) => {
+            console.error(error);
+        });
+
+    return res;
 }
 
 export default App;
