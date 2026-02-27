@@ -4,6 +4,7 @@ import music_video_svg from './assets/music_video_128dp_E3E3E3_FILL0_wght400_GRA
 import pause_svg from './assets/pause_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import play_svg from './assets/play_arrow_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import play_next_svg from './assets/skip_next_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
+import play_prev_svg from './assets/skip_previous_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import axios from 'axios';
 
 function App() {
@@ -71,12 +72,14 @@ function App() {
                         <p className="text-right">{toHHMMSS(Math.ceil(duration))}</p>
                     </div>
                     <div className="relative flex items-center justify-center gap-1">
-                        <div className="w-10" />
+                        <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayPrevClick(audio_ref)}>
+                            <img src={play_prev_svg} alt='play previous' width="38" />
+                        </button>
                         <button className="btn btn-primary btn-xl btn-circle" onClick={() => setIsPlaying((is_playing) => !is_playing)}>
                             <PlayPauseButtonIcon is_playing={is_playing} />
                         </button>
                         <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayNextClick(audio_ref, played++)}>
-                            <img src={play_next_svg} alt='play next icon' width="38" />
+                            <img src={play_next_svg} alt='play next' width="38" />
                         </button>
                     </div>
                 </div>
@@ -112,6 +115,11 @@ async function onPlayNextClick(audio_ref: RefObject<HTMLAudioElement | null>, pl
         audio_ref.current.src = href;
         audio_ref.current.play();
     });
+}
+
+async function onPlayPrevClick(audio_ref: RefObject<HTMLAudioElement | null>) {
+    if (audio_ref.current === null) return;
+    audio_ref.current.fastSeek(0.0);
 }
 
 function toHHMMSS(sec: number): string {
