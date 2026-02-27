@@ -1,58 +1,58 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
-import './App.css'
-import music_video_svg from './assets/music_video_128dp_E3E3E3_FILL0_wght400_GRAD0_opsz48.svg'
-import pause_svg from './assets/pause_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'
-import play_svg from './assets/play_arrow_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'
-import play_next_svg from './assets/skip_next_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'
-import axios from 'axios'
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import './App.css';
+import music_video_svg from './assets/music_video_128dp_E3E3E3_FILL0_wght400_GRAD0_opsz48.svg';
+import pause_svg from './assets/pause_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
+import play_svg from './assets/play_arrow_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
+import play_next_svg from './assets/skip_next_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
+import axios from 'axios';
 
 function App() {
     let played = 0;
-    const audio_ref = useRef<HTMLAudioElement>(null);
-    const [title, _setTitle] = useState("Audio title")
-    const [position, setPosition] = useState(0.0)
-    const [duration, setDuration] = useState(1.0)
-    const [is_playing, setIsPlaying] = useState(false)
+    const audio_ref = useRef<HTMLAudioElement>(null);;
+    const [title, _setTitle] = useState("Audio title");
+    const [position, setPosition] = useState(0.0);
+    const [duration, setDuration] = useState(1.0);
+    const [is_playing, setIsPlaying] = useState(false);
 
     useEffect(() => {
         navigator.mediaSession.setActionHandler('nexttrack', () => {
-            onPlayNextClick(audio_ref, played++)
+            onPlayNextClick(audio_ref, played++);
         })
-    }, [])
+    }, []);
 
     useEffect(() => {
         fetchRandomAudioFile(played).then(href => {
             if (audio_ref.current === null) return
             audio_ref.current.src = href
         })
-    }, [audio_ref])
+    }, [audio_ref]);
 
     useEffect(() => {
         if (is_playing) {
-            audio_ref.current?.play()
+            audio_ref.current?.play();
         } else {
-            audio_ref.current?.pause()
+            audio_ref.current?.pause();
         }
-    }, [is_playing, audio_ref])
+    }, [is_playing, audio_ref]);
     useEffect(() => {
         if (audio_ref.current !== null) {
             audio_ref.current.onloadedmetadata = () => {
-                setDuration(audio_ref.current!.duration)
+                setDuration(audio_ref.current!.duration);
             }
             audio_ref.current.ontimeupdate = () => {
-                setPosition(Math.ceil(audio_ref.current!.currentTime))
+                setPosition(Math.ceil(audio_ref.current!.currentTime));
             }
             audio_ref.current.onended = () => {
-                played++
+                played++;
                 fetchRandomAudioFile(played).then(href => {
-                    if (audio_ref.current === null) return
-                    window.URL.revokeObjectURL(audio_ref.current.src)
-                    audio_ref.current.src = href
-                    audio_ref.current.play()
+                    if (audio_ref.current === null) return;
+                    window.URL.revokeObjectURL(audio_ref.current.src);
+                    audio_ref.current.src = href;
+                    audio_ref.current.play();
                 })
             }
         }
-    }, [audio_ref])
+    }, [audio_ref]);
 
 
     return (
@@ -87,46 +87,46 @@ function App() {
 
 function PlayPauseButtonIcon({ is_playing }: { is_playing: boolean }) {
     if (is_playing) {
-        return <img src={pause_svg} alt='pause icon' width="48" />
+        return <img src={pause_svg} alt='pause icon' width="48" />;
     } else {
-        return <img src={play_svg} alt='play icon' width="48" />
+        return <img src={play_svg} alt='play icon' width="48" />;
     }
 }
 
 async function fetchRandomAudioFile(played: number): Promise<string> {
     const response = await axios({
         method: 'get',
-        url: `http://localhost:65421/?${played}`,
+        url: `/?${played}`,
         responseType: 'blob'
-    })
+    });
 
     const href = window.URL.createObjectURL(response.data);
 
-    return href
+    return href;
 }
 
 async function onPlayNextClick(audio_ref: RefObject<HTMLAudioElement | null>, played: number) {
     fetchRandomAudioFile(played).then(href => {
-        if (audio_ref.current === null) return
-        window.URL.revokeObjectURL(audio_ref.current.src)
-        audio_ref.current.src = href
-        audio_ref.current.play()
-    })
+        if (audio_ref.current === null) return;
+        window.URL.revokeObjectURL(audio_ref.current.src);
+        audio_ref.current.src = href;
+        audio_ref.current.play();
+    });
 }
 
 function toHHMMSS(sec: number): string {
-    if (sec < 0) return "00:00"
+    if (sec < 0) return "00:00";
 
-    const s = sec % 60
-    const m = Math.floor(sec % 3600 / 60)
-    const h = Math.floor(sec / 3600)
+    const s = sec % 60;
+    const m = Math.floor(sec % 3600 / 60);
+    const h = Math.floor(sec / 3600);
 
-    const ss = String(s).padStart(2, '0')
-    const mm = String(m).padStart(2, '0')
-    const hh = String(h).padStart(2, '0')
+    const ss = String(s).padStart(2, '0');
+    const mm = String(m).padStart(2, '0');
+    const hh = String(h).padStart(2, '0');
 
-    if (h == 0) return `${mm}:${ss}`
-    return `${hh}:${mm}:${ss}`
+    if (h == 0) return `${mm}:${ss}`;
+    return `${hh}:${mm}:${ss}`;
 }
 
-export default App
+export default App;
