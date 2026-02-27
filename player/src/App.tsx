@@ -3,6 +3,7 @@ import './App.css'
 import music_video_svg from './assets/music_video_128dp_E3E3E3_FILL0_wght400_GRAD0_opsz48.svg'
 import pause_svg from './assets/pause_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'
 import play_svg from './assets/play_arrow_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg'
+import axios from 'axios'
 
 function App() {
     const audio_ref = useRef<HTMLAudioElement>(null);
@@ -10,6 +11,18 @@ function App() {
     const [position, setPosition] = useState(0.0)
     const [duration, setDuration] = useState(1.0)
     const [is_playing, setIsPlaying] = useState(false)
+
+    useEffect(() => {
+        axios({
+            method: 'get',
+            url: `/`,
+            responseType: 'blob'
+        }).then((response) => {
+            if (audio_ref.current === null) return
+            const href = window.URL.createObjectURL(response.data);
+            audio_ref.current.src = href
+        })
+    }, [audio_ref])
 
     useEffect(() => {
         if (is_playing) {
@@ -32,7 +45,7 @@ function App() {
 
     return (
         <>
-            <audio className="hidden" src="./" controls ref={audio_ref}></audio>
+            <audio className="hidden" controls ref={audio_ref}></audio>
             <h1 className="p-4">SubSonicVault Player</h1>
             <div className="card bg-base-100 w-96 shadow-sm mx-auto">
                 <figure>
@@ -61,4 +74,5 @@ function PlayPauseButtonIcon({ is_playing }: { is_playing: boolean }) {
         return <img src={play_svg} alt='play icon' width="48" />
     }
 }
+
 export default App
