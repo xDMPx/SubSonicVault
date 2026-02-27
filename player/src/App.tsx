@@ -9,6 +9,8 @@ import axios from 'axios';
 
 function App() {
     let played = 0;
+    let load_audio = true;
+
     const audio_ref = useRef<HTMLAudioElement>(null);;
     const [title, _setTitle] = useState("Audio title");
     const [position, setPosition] = useState(0.0);
@@ -22,13 +24,6 @@ function App() {
     }, []);
 
     useEffect(() => {
-        fetchRandomAudioFile(played).then(href => {
-            if (audio_ref.current === null) return
-            audio_ref.current.src = href
-        })
-    }, [audio_ref]);
-
-    useEffect(() => {
         if (is_playing) {
             audio_ref.current?.play();
         } else {
@@ -36,22 +31,28 @@ function App() {
         }
     }, [is_playing, audio_ref]);
     useEffect(() => {
-        if (audio_ref.current !== null) {
-            audio_ref.current.onloadedmetadata = () => {
-                setDuration(audio_ref.current!.duration);
-            }
-            audio_ref.current.ontimeupdate = () => {
-                setPosition(Math.ceil(audio_ref.current!.currentTime));
-            }
-            audio_ref.current.onended = () => {
-                played++;
-                fetchRandomAudioFile(played).then(href => {
-                    if (audio_ref.current === null) return;
-                    window.URL.revokeObjectURL(audio_ref.current.src);
-                    audio_ref.current.src = href;
-                    audio_ref.current.play();
-                })
-            }
+        if (audio_ref.current === null) return;
+        if (load_audio) {
+            load_audio = false;
+            fetchRandomAudioFile(played).then(href => {
+                if (audio_ref.current === null) return
+                audio_ref.current.src = href
+            });
+        }
+        audio_ref.current.onloadedmetadata = () => {
+            setDuration(audio_ref.current!.duration);
+        }
+        audio_ref.current.ontimeupdate = () => {
+            setPosition(Math.ceil(audio_ref.current!.currentTime));
+        }
+        audio_ref.current.onended = () => {
+            played++;
+            fetchRandomAudioFile(played).then(href => {
+                if (audio_ref.current === null) return;
+                window.URL.revokeObjectURL(audio_ref.current.src);
+                audio_ref.current.src = href;
+                audio_ref.current.play();
+            })
         }
     }, [audio_ref]);
 
