@@ -6,6 +6,7 @@ import play_svg from './assets/play_arrow_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24
 import axios from 'axios'
 
 function App() {
+    let played = 0;
     const audio_ref = useRef<HTMLAudioElement>(null);
     const [title, _setTitle] = useState("Audio title")
     const [position, setPosition] = useState(0.0)
@@ -13,13 +14,8 @@ function App() {
     const [is_playing, setIsPlaying] = useState(false)
 
     useEffect(() => {
-        axios({
-            method: 'get',
-            url: `/`,
-            responseType: 'blob'
-        }).then((response) => {
+        fetchRandomAudioFile(played).then(href => {
             if (audio_ref.current === null) return
-            const href = window.URL.createObjectURL(response.data);
             audio_ref.current.src = href
         })
     }, [audio_ref])
@@ -38,6 +34,15 @@ function App() {
             }
             audio_ref.current.ontimeupdate = () => {
                 setPosition(Math.ceil(audio_ref.current!.currentTime))
+            }
+            audio_ref.current.onended = () => {
+                played++
+                fetchRandomAudioFile(played).then(href => {
+                    if (audio_ref.current === null) return
+                    window.URL.revokeObjectURL(audio_ref.current.src)
+                    audio_ref.current.src = href
+                    audio_ref.current.play()
+                })
             }
         }
     }, [audio_ref])
@@ -73,6 +78,18 @@ function PlayPauseButtonIcon({ is_playing }: { is_playing: boolean }) {
     } else {
         return <img src={play_svg} alt='play icon' width="48" />
     }
+}
+
+async function fetchRandomAudioFile(played: number): Promise<string> {
+    const response = await axios({
+        method: 'get',
+        url: `/?${played}`,
+        responseType: 'blob'
+    })
+
+    const href = window.URL.createObjectURL(response.data);
+
+    return href
 }
 
 export default App
