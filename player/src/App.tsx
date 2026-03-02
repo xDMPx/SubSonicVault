@@ -5,6 +5,8 @@ import pause_svg from './assets/pause_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg
 import play_svg from './assets/play_arrow_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import play_next_svg from './assets/skip_next_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import play_prev_svg from './assets/skip_previous_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
+import volume_up_svg from './assets/volume_up_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
+import volume_off_svg from './assets/volume_off_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import axios from 'axios';
 
 import mediaInfoFactory from 'mediainfo.js';
@@ -21,6 +23,7 @@ function App() {
     const [position, setPosition] = useState(0.0);
     const [duration, setDuration] = useState(1.0);
     const [is_playing, setIsPlaying] = useState(false);
+    const [is_muted, setIsMuted] = useState(false);
 
     useEffect(() => {
         mediaInfoFactory({
@@ -111,6 +114,15 @@ function App() {
         }
     }, [audio_ref]);
 
+    useEffect(() => {
+        if (audio_ref.current === null) return;
+        if (is_muted) {
+            audio_ref.current.muted = true;
+        } else {
+            audio_ref.current.muted = false;
+        }
+    }, [is_muted]);
+
     function seekToPosition(pos: number) {
         if (audio_ref.current === null) return;
         setPosition(pos);
@@ -145,6 +157,9 @@ function App() {
                             <img src={play_next_svg} alt='play next' width="38" />
                         </button>
                     </div>
+                    <button className="btn btn-circle btn-ghost" onClick={() => setIsMuted(!is_muted)}>
+                        <VolumeButtonIcon is_muted={is_muted} />
+                    </button>
                 </div>
             </div>
         </>
@@ -156,6 +171,14 @@ function PlayPauseButtonIcon({ is_playing }: { is_playing: boolean }) {
         return <img src={pause_svg} alt='pause icon' width="48" />;
     } else {
         return <img src={play_svg} alt='play icon' width="48" />;
+    }
+}
+
+function VolumeButtonIcon({ is_muted }: { is_muted: boolean }) {
+    if (is_muted) {
+        return <img src={volume_off_svg} alt='pause icon' width="30" />;
+    } else {
+        return <img src={volume_up_svg} alt='play icon' width="30" />;
     }
 }
 
