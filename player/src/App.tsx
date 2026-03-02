@@ -93,6 +93,11 @@ function App() {
         }
     }, [audio_ref]);
 
+    function seekToPosition(pos: number) {
+        if (audio_ref.current === null) return;
+        setPosition(pos);
+        audio_ref.current.currentTime = pos;
+    }
 
     return (
         <>
@@ -104,7 +109,9 @@ function App() {
                 </figure>
                 <div className="card-body">
                     <h2 className="card-title mx-auto">{title}</h2>
-                    <input type="range" min="0.0" value={position} max={duration} className="range range-xs w-full" onChange={(e) => { setPosition(+e.target.value) }} />
+                    <input type="range" min="0.0" value={position} max={duration} className="range range-xs w-full" onChange={(e) => {
+                        seekToPosition(+e.target.value)
+                    }} />
                     <div className="flex w-full">
                         <p className="text-left">{toHHMMSS(position)}</p>
                         <p className="text-right">{toHHMMSS(Math.ceil(duration))}</p>
@@ -157,7 +164,7 @@ async function onPlayNextClick(audio_ref: RefObject<HTMLAudioElement | null>, pl
 
 async function onPlayPrevClick(audio_ref: RefObject<HTMLAudioElement | null>) {
     if (audio_ref.current === null) return;
-    audio_ref.current.fastSeek(0.0);
+    audio_ref.current.currentTime = 0.0;
 }
 
 function toHHMMSS(sec: number): string {
