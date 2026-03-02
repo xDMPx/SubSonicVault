@@ -48,6 +48,14 @@ function App() {
         navigator.mediaSession.setActionHandler('nexttrack', () => {
             onPlayNextClick(audio_ref, played++);
         });
+        navigator.mediaSession.setActionHandler('play', () => {
+            audio_ref.current?.play();
+            setIsPlaying(true);
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+            audio_ref.current?.pause();
+            setIsPlaying(false);
+        });
     }, []);
 
     useEffect(() => {
