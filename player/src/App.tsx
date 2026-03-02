@@ -42,9 +42,12 @@ function App() {
     }, []);
 
     useEffect(() => {
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+            onPlayPrevClick(audio_ref);
+        });
         navigator.mediaSession.setActionHandler('nexttrack', () => {
             onPlayNextClick(audio_ref, played++);
-        })
+        });
     }, []);
 
     useEffect(() => {
