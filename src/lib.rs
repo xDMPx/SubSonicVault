@@ -23,6 +23,16 @@ pub struct AudioFile {
 }
 
 #[derive(serde::Serialize)]
+pub struct AudioFileMetadata {
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub genre: Option<String>,
+    pub release_year: Option<String>,
+    pub duration: u64,
+}
+
+#[derive(serde::Serialize)]
 pub struct PingResponse {
     pub status: String,
     pub version: String,
@@ -207,6 +217,7 @@ pub fn print_help() {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct HashError {
     path: std::path::PathBuf,
     error: std::io::Error,

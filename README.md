@@ -60,13 +60,15 @@ Options:
 ```
 
 ## Endpoints
-| Endpoint     | Method | Description                                                                          |
-| ------------ | ------ | ------------------------------------------------------------------------------------ |
-| `/`          | GET    | Serves a random audio file from the collection                                       |
-| `/scan`      | GET    | Rescans the base directory                                                           |
-| `/files`     | GET    | Returns a JSON array of all indexed audio files with their IDs, paths and MIME types |
-| `/file/{id}` | GET    | Streams the audio file by the provided ID/hash                                       |
-| `/ping`      | GET    | Health-check; returns JSON `{"status":"ok","version":"<ver>"}`                       |
+
+| Endpoint              | Method | Description                                                                                                                    |
+| --------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `/`                   | GET    | Serves a random audio file from the collection                                                                                 |
+| `/scan`               | GET    | Rescans the base directory                                                                                                     |
+| `/files`              | GET    | Returns a JSON array of all indexed audio files with their IDs, paths and MIME types                                           |
+| `/file/{id}`          | GET    | Streams the audio file by the provided ID/hash                                                                                 |
+| `/file/{id}/metadata` | GET    | Retrieve the audio file’s metadata (title, artist, album, genre, release year, duration) as JSON for the file identified by ID |
+| `/ping`               | GET    | Health-check; returns JSON `{"status":"ok","version":"<ver>"}`                                                                 |
 
 ## Preview
 

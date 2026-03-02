@@ -1,9 +1,13 @@
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware::Logger, web};
+use lofty::{
+    file::{AudioFile as LofyAudioFile, TaggedFileExt},
+    tag::Accessor,
+};
 use rand::Rng;
 use std::sync::Mutex;
 use subsonic_vault::{
-    AppState, AudioFile, PingResponse, ProgramOption, extension_to_mime, print_help, process_args,
-    traverse_dir,
+    AppState, AudioFile, AudioFileMetadata, PingResponse, ProgramOption, extension_to_mime,
+    print_help, process_args, traverse_dir,
 };
 
 #[actix_web::main]
@@ -58,6 +62,7 @@ async fn main() -> std::io::Result<()> {
             .service(scan)
             .service(get_files)
             .service(get_file_by_id)
+            .service(get_file_metadata_by_id)
             .service(ping)
             .service(actix_files::Files::new("/player", "./player/dist").index_file("index.html"))
             .service(actix_files::Files::new("/assets", "./player/dist/assets"))
@@ -142,6 +147,60 @@ async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<String>) -> i
             "Content-Disposition",
             format!("inline; filename*=UTF-8''{}", file_name.to_string_lossy()),
         ))
+}
+
+#[get("/file/{id}/metadata")]
+async fn get_file_metadata_by_id(
+    data: web::Data<AppState>,
+    path: web::Path<String>,
+) -> impl Responder {
+    let hash = path.into_inner();
+    let audiofiles = data.audiofiles.lock().unwrap();
+
+    let file = &audiofiles[&hash];
+    let tagged_file = lofty::read_from_path(file).unwrap();
+
+    let title = tagged_file
+        .tags()
+        .iter()
+        .find_map(|t| t.title())
+        .map(|x| x.to_string());
+    let artist = tagged_file
+        .tags()
+        .iter()
+        .find_map(|t| t.artist())
+        .map(|x| x.to_string());
+    let album = tagged_file
+        .tags()
+        .iter()
+        .find_map(|t| t.album())
+        .map(|x| x.to_string());
+    let genre = tagged_file
+        .tags()
+        .iter()
+        .find_map(|t| t.genre())
+        .map(|x| x.to_string());
+    let release_year = tagged_file
+        .tags()
+        .iter()
+        .find_map(|t| t.date())
+        .map(|x| x.to_string());
+    let duration = tagged_file.properties().duration().as_secs();
+
+    let metadata = AudioFileMetadata {
+        title,
+        artist,
+        album,
+        genre,
+        release_year,
+        duration,
+    };
+
+    let metadata_json = serde_json::to_vec(&metadata).unwrap();
+
+    HttpResponse::Ok()
+        .content_type("application/json; charset=utf-8")
+        .body(metadata_json)
 }
 
 #[get("/ping")]
