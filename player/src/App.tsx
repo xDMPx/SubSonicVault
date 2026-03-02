@@ -24,6 +24,7 @@ function App() {
     const [duration, setDuration] = useState(1.0);
     const [is_playing, setIsPlaying] = useState(false);
     const [is_muted, setIsMuted] = useState(false);
+    const [playback_volume, setPlaybackVolume] = useState(1.0);
 
     useEffect(() => {
         mediaInfoFactory({
@@ -74,8 +75,8 @@ function App() {
         if (load_audio) {
             load_audio = false;
             fetchRandomAudioFile(played).then(href => {
-                if (audio_ref.current === null) return
-                audio_ref.current.src = href
+                if (audio_ref.current === null) return;
+                audio_ref.current.src = href;
             });
         }
 
@@ -123,6 +124,17 @@ function App() {
         }
     }, [is_muted]);
 
+
+    useEffect(() => {
+        if (audio_ref.current === null) return;
+        audio_ref.current.volume = playback_volume;
+        if (playback_volume == 0.0) {
+            setIsMuted(true);
+        } else {
+            setIsMuted(false);
+        }
+    }, [playback_volume]);
+
     function seekToPosition(pos: number) {
         if (audio_ref.current === null) return;
         setPosition(pos);
@@ -157,11 +169,18 @@ function App() {
                             <img src={play_next_svg} alt='play next' width="38" />
                         </button>
                     </div>
-                    <button className="btn btn-circle btn-ghost" onClick={() => setIsMuted(!is_muted)}>
-                        <VolumeButtonIcon is_muted={is_muted} />
-                    </button>
+                    <div className="group items-center relative inline-flex w-min">
+                        <button className="btn btn-circle btn-ghost" onClick={() => setIsMuted(!is_muted)}>
+                            <VolumeButtonIcon is_muted={is_muted} />
+                        </button>
+                        <div className="w-0 overflow-hidden opacity-0 group-hover:w-32 group-hover:opacity-100">
+                            <input type="range" min="0" value={playback_volume * 100} max="100" className="range range-xs range-primary w-full" onChange={(e) => {
+                                setPlaybackVolume(+e.target.value / 100.0)
+                            }} />
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </div >
         </>
     )
 }
