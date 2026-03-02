@@ -63,13 +63,6 @@ function App() {
     }, []);
 
     useEffect(() => {
-        if (is_playing) {
-            audio_ref.current?.play();
-        } else {
-            audio_ref.current?.pause();
-        }
-    }, [is_playing, audio_ref]);
-    useEffect(() => {
         if (audio_ref.current === null) return;
 
         if (load_audio) {
@@ -78,6 +71,13 @@ function App() {
                 if (audio_ref.current === null) return;
                 audio_ref.current.src = href;
             });
+        }
+
+        audio_ref.current.onplay = () => {
+            setIsPlaying(true);
+        }
+        audio_ref.current.onpause = () => {
+            setIsPlaying(false);
         }
 
         audio_ref.current.onloadedmetadata = () => {
@@ -141,6 +141,14 @@ function App() {
         audio_ref.current.currentTime = pos;
     }
 
+    function onPlayPauseClick() {
+        if (is_playing) {
+            audio_ref.current?.pause();
+        } else {
+            audio_ref.current?.play();
+        }
+    }
+
     return (
         <>
             <audio className="hidden" controls ref={audio_ref}></audio>
@@ -162,7 +170,7 @@ function App() {
                         <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayPrevClick(audio_ref)}>
                             <img src={play_prev_svg} alt='play previous' width="38" />
                         </button>
-                        <button className="btn btn-primary btn-xl btn-circle" onClick={() => setIsPlaying((is_playing) => !is_playing)}>
+                        <button className="btn btn-primary btn-xl btn-circle" onClick={() => onPlayPauseClick()}>
                             <PlayPauseButtonIcon is_playing={is_playing} />
                         </button>
                         <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayNextClick(audio_ref, played++)}>
