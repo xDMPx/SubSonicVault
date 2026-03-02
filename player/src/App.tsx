@@ -69,9 +69,14 @@ function App() {
             setDuration(audio_ref.current!.duration);
             getMetadataFromBlob(mediaInfoRef, audio_ref.current!.src).then(metadata => {
                 if (metadata === undefined) return;
-                const title = metadata.media?.track.at(0)?.Title;
+                const track = metadata.media?.track.at(0);
+                if (track?.['@type'] !== 'General') return;
+                const title = track.Title;
                 if (title === undefined) return;
                 setTitle(title);
+                const performer = track.Performer;
+                if (performer === undefined) return;
+                setTitle(`${title} ⭘  ${performer}`);
             });
         }
         audio_ref.current.ontimeupdate = () => {
@@ -132,7 +137,7 @@ function PlayPauseButtonIcon({ is_playing }: { is_playing: boolean }) {
 async function fetchRandomAudioFile(played: number): Promise<string> {
     const response = await axios({
         method: 'get',
-        url: `http://localhost:65421/?${played}`,
+        url: `/?${played}`,
         responseType: 'blob'
     });
 
