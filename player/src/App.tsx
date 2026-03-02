@@ -85,9 +85,16 @@ function App() {
                 const title = track.Title;
                 if (title === undefined) return;
                 setTitle(title);
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: title,
+                });
                 const performer = track.Performer;
                 if (performer === undefined) return;
                 setTitle(`${title} ⭘  ${performer}`);
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: title,
+                    artist: performer
+                });
             });
         }
         audio_ref.current.ontimeupdate = () => {
