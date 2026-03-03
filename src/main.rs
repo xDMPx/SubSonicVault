@@ -1,4 +1,6 @@
-use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware::Logger, web};
+use actix_web::{
+    App, HttpRequest, HttpResponse, HttpServer, Responder, get, middleware::Logger, web,
+};
 use lofty::{
     file::{AudioFile as LofyAudioFile, TaggedFileExt},
     tag::Accessor,
@@ -63,6 +65,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_files)
             .service(get_file_by_id)
             .service(get_file_metadata_by_id)
+            .service(get_file_artwork_by_id)
             .service(ping)
             .service(actix_files::Files::new("/player", "./player/dist").index_file("index.html"))
             .service(actix_files::Files::new("/assets", "./player/dist/assets"))
@@ -151,6 +154,7 @@ async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<String>) -> i
 
 #[get("/file/{id}/metadata")]
 async fn get_file_metadata_by_id(
+    req: HttpRequest,
     data: web::Data<AppState>,
     path: web::Path<String>,
 ) -> impl Responder {
@@ -187,6 +191,13 @@ async fn get_file_metadata_by_id(
         .map(|x| x.to_string());
     let duration = tagged_file.properties().duration().as_secs();
 
+    let picture_count: u32 = tagged_file.tags().iter().map(|t| t.picture_count()).sum();
+    let artwork_url = if picture_count != 0 {
+        Some(req.full_url().join("metadata/artwork").unwrap().to_string())
+    } else {
+        None
+    };
+
     let metadata = AudioFileMetadata {
         title,
         artist,
@@ -194,6 +205,7 @@ async fn get_file_metadata_by_id(
         genre,
         release_year,
         duration,
+        artwork_url,
     };
 
     let metadata_json = serde_json::to_vec(&metadata).unwrap();
@@ -201,6 +213,26 @@ async fn get_file_metadata_by_id(
     HttpResponse::Ok()
         .content_type("application/json; charset=utf-8")
         .body(metadata_json)
+}
+
+#[get("/file/{id}/metadata/artwork")]
+async fn get_file_artwork_by_id(
+    data: web::Data<AppState>,
+    path: web::Path<String>,
+) -> impl Responder {
+    let hash = path.into_inner();
+    let audiofiles = data.audiofiles.lock().unwrap();
+
+    let file = &audiofiles[&hash];
+    let tagged_file = lofty::read_from_path(file).unwrap();
+
+    let artwork = tagged_file.tags().iter().flat_map(|t| t.pictures()).next();
+
+    if let Some(artwork) = artwork {
+        HttpResponse::Ok().body(artwork.data().to_vec())
+    } else {
+        HttpResponse::NotFound().body("No embedded cover art")
+    }
 }
 
 #[get("/ping")]

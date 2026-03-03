@@ -29,6 +29,7 @@ pub struct AudioFileMetadata {
     pub album: Option<String>,
     pub genre: Option<String>,
     pub release_year: Option<String>,
+    pub artwork_url: Option<String>,
     pub duration: u64,
 }
 
