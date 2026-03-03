@@ -7,14 +7,14 @@ import play_next_svg from './assets/skip_next_24dp_E3E3E3_FILL0_wght400_GRAD0_op
 import play_prev_svg from './assets/skip_previous_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import volume_up_svg from './assets/volume_up_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import volume_off_svg from './assets/volume_off_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
-import axios from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 
 import mediaInfoFactory from 'mediainfo.js';
 import type { MediaInfo, MediaInfoResult } from 'mediainfo.js';
 import mediaInfoWasmUrl from 'mediainfo.js/MediaInfoModule.wasm?url';
 
 function App() {
-    let played = 0;
+    let fetch_audio_files = true;
     let load_audio = true;
 
     const audio_ref = useRef<HTMLAudioElement>(null);
@@ -25,6 +25,35 @@ function App() {
     const [is_playing, setIsPlaying] = useState(false);
     const [is_muted, setIsMuted] = useState(false);
     const [playback_volume, setPlaybackVolume] = useState(1.0);
+    const [audio_files, setAudioFiles] = useState([] as AudioFile[]);
+
+    useEffect(() => {
+        if (!fetch_audio_files) return;
+        fetch_audio_files = false;
+        fetchAudioFiles().then((audio_files) => {
+            setAudioFiles(audio_files);
+        });
+    }, []);
+
+    useEffect(() => {
+        if (audio_files.length == 0) return;
+        if (audio_ref.current === null) return;
+        if (load_audio) {
+            load_audio = false;
+            fetchRandomAudioFile(audio_files).then(href => {
+                if (audio_ref.current === null) return;
+                audio_ref.current.src = href;
+            });
+        }
+        audio_ref.current.onended = () => {
+            fetchRandomAudioFile(audio_files).then(href => {
+                if (audio_ref.current === null) return;
+                window.URL.revokeObjectURL(audio_ref.current.src);
+                audio_ref.current.src = href;
+                audio_ref.current.play();
+            })
+        }
+    }, [audio_files, audio_ref]);
 
     useEffect(() => {
         mediaInfoFactory({
@@ -50,7 +79,7 @@ function App() {
             onPlayPrevClick(audio_ref);
         });
         navigator.mediaSession.setActionHandler('nexttrack', () => {
-            onPlayNextClick(audio_ref, played++);
+            onPlayNextClick(audio_ref, audio_files);
         });
         navigator.mediaSession.setActionHandler('play', () => {
             audio_ref.current?.play();
@@ -64,14 +93,6 @@ function App() {
 
     useEffect(() => {
         if (audio_ref.current === null) return;
-
-        if (load_audio) {
-            load_audio = false;
-            fetchRandomAudioFile(played).then(href => {
-                if (audio_ref.current === null) return;
-                audio_ref.current.src = href;
-            });
-        }
 
         audio_ref.current.onplay = () => {
             setIsPlaying(true);
@@ -103,15 +124,6 @@ function App() {
         }
         audio_ref.current.ontimeupdate = () => {
             setPosition(Math.ceil(audio_ref.current!.currentTime));
-        }
-        audio_ref.current.onended = () => {
-            played++;
-            fetchRandomAudioFile(played).then(href => {
-                if (audio_ref.current === null) return;
-                window.URL.revokeObjectURL(audio_ref.current.src);
-                audio_ref.current.src = href;
-                audio_ref.current.play();
-            })
         }
     }, [audio_ref]);
 
@@ -173,7 +185,7 @@ function App() {
                         <button className="btn btn-primary btn-xl btn-circle" onClick={() => onPlayPauseClick()}>
                             <PlayPauseButtonIcon is_playing={is_playing} />
                         </button>
-                        <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayNextClick(audio_ref, played++)}>
+                        <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayNextClick(audio_ref, audio_files)}>
                             <img src={play_next_svg} alt='play next' width="38" />
                         </button>
                     </div>
@@ -209,10 +221,27 @@ function VolumeButtonIcon({ is_muted }: { is_muted: boolean }) {
     }
 }
 
-async function fetchRandomAudioFile(played: number): Promise<string> {
+interface AudioFile {
+    id: String,
+    path: String,
+    mime: String,
+}
+
+async function fetchAudioFiles(): Promise<AudioFile[]> {
+    const response: AxiosResponse<AudioFile[]> = await axios({
+        method: 'get',
+        url: `/files`,
+        responseType: 'json'
+    });
+
+    return response.data;
+}
+
+async function fetchRandomAudioFile(audio_files: AudioFile[]): Promise<string> {
+    const id = audio_files.at(Math.floor(Math.random() * audio_files.length))?.id;
     const response = await axios({
         method: 'get',
-        url: `/?${played}`,
+        url: `/file/${id}`,
         responseType: 'blob'
     });
 
@@ -221,8 +250,8 @@ async function fetchRandomAudioFile(played: number): Promise<string> {
     return href;
 }
 
-async function onPlayNextClick(audio_ref: RefObject<HTMLAudioElement | null>, played: number) {
-    fetchRandomAudioFile(played).then(href => {
+async function onPlayNextClick(audio_ref: RefObject<HTMLAudioElement | null>, audio_files: AudioFile[]) {
+    fetchRandomAudioFile(audio_files).then(href => {
         if (audio_ref.current === null) return;
         window.URL.revokeObjectURL(audio_ref.current.src);
         audio_ref.current.src = href;
