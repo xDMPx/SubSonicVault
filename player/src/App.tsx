@@ -228,9 +228,13 @@ interface AudioFile {
 }
 
 async function fetchAudioFiles(): Promise<AudioFile[]> {
+    let url = '/files';
+    if (import.meta.env.DEV) {
+        url = `http://localhost:65421${url}`;
+    }
     const response: AxiosResponse<AudioFile[]> = await axios({
         method: 'get',
-        url: `/files`,
+        url,
         responseType: 'json'
     });
 
@@ -239,9 +243,13 @@ async function fetchAudioFiles(): Promise<AudioFile[]> {
 
 async function fetchRandomAudioFile(audio_files: AudioFile[]): Promise<string> {
     const id = audio_files.at(Math.floor(Math.random() * audio_files.length))?.id;
+    let url = `/file/${id}`;
+    if (import.meta.env.DEV) {
+        url = `http://localhost:65421${url}`;
+    }
     const response = await axios({
         method: 'get',
-        url: `/file/${id}`,
+        url,
         responseType: 'blob'
     });
 
