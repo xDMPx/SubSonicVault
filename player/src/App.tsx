@@ -164,43 +164,53 @@ function App() {
     return (
         <>
             <audio className="hidden" controls ref={audio_ref}></audio>
-            <h1 className="p-4">SubSonicVault Player</h1>
-            <div className="card bg-base-100 w-96 shadow-sm mx-auto">
-                <figure>
-                    <img src={music_video_svg} alt='music video icon' width="256" />
-                </figure>
-                <div className="card-body">
-                    <h2 className="card-title mx-auto">{title}</h2>
-                    <input type="range" min="0.0" value={position} max={duration} className="range range-xs w-full" onChange={(e) => {
-                        seekToPosition(+e.target.value)
-                    }} />
-                    <div className="flex w-full">
-                        <p className="text-left">{toHHMMSS(position)}</p>
-                        <p className="text-right">{toHHMMSS(Math.ceil(duration))}</p>
+            <div className="flex flex-col h-screen bg-base-200/30">
+                <div className="navbar shadow-md">
+                    <div className="navbar-start"></div>
+                    <div className="navbar-center">
+                        <h1 className="p-4">SubSonicVault Player</h1>
                     </div>
-                    <div className="relative flex items-center justify-center gap-1">
-                        <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayPrevClick(audio_ref)}>
-                            <img src={play_prev_svg} alt='play previous' width="38" />
-                        </button>
-                        <button className="btn btn-primary btn-xl btn-circle" onClick={() => onPlayPauseClick()}>
-                            <PlayPauseButtonIcon is_playing={is_playing} />
-                        </button>
-                        <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayNextClick(audio_ref, audio_files)}>
-                            <img src={play_next_svg} alt='play next' width="38" />
-                        </button>
-                    </div>
-                    <div className="group items-center relative inline-flex w-min">
-                        <button className="btn btn-circle btn-ghost" onClick={() => setIsMuted(!is_muted)}>
-                            <VolumeButtonIcon is_muted={is_muted} />
-                        </button>
-                        <div className="w-0 overflow-hidden opacity-0 group-hover:w-32 group-hover:opacity-100">
-                            <input type="range" min="0" value={playback_volume * 100} max="100" className="range range-xs range-primary w-full" onChange={(e) => {
-                                setPlaybackVolume(+e.target.value / 100.0)
+                    <div className="navbar-end"></div>
+                </div>
+                <div className="flex flex-1 justify-center place-items-center">
+                    <div className="card w-96 bg-base-100 shadow-lg h-min">
+                        <figure>
+                            <img src={music_video_svg} alt='music video icon' width="256" />
+                        </figure>
+                        <div className="card-body">
+                            <h2 className="card-title mx-auto">{title}</h2>
+                            <input type="range" min="0.0" value={position} max={duration} className="range range-xs w-full" onChange={(e) => {
+                                seekToPosition(+e.target.value)
                             }} />
+                            <div className="flex w-full">
+                                <p className="text-left">{toHHMMSS(position)}</p>
+                                <p className="text-right">{toHHMMSS(Math.ceil(duration))}</p>
+                            </div>
+                            <div className="relative flex items-center justify-center gap-1">
+                                <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayPrevClick(audio_ref)}>
+                                    <img src={play_prev_svg} alt='play previous' width="38" />
+                                </button>
+                                <button className="btn btn-primary btn-xl btn-circle" onClick={() => onPlayPauseClick()}>
+                                    <PlayPauseButtonIcon is_playing={is_playing} />
+                                </button>
+                                <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayNextClick(audio_ref, audio_files)}>
+                                    <img src={play_next_svg} alt='play next' width="38" />
+                                </button>
+                            </div>
+                            <div className="group items-center relative inline-flex w-min">
+                                <button className="btn btn-circle btn-ghost" onClick={() => setIsMuted(!is_muted)}>
+                                    <VolumeButtonIcon is_muted={is_muted} />
+                                </button>
+                                <div className="w-0 overflow-hidden opacity-0 group-hover:w-32 group-hover:opacity-100">
+                                    <input type="range" min="0" value={playback_volume * 100} max="100" className="range range-xs range-primary w-full" onChange={(e) => {
+                                        setPlaybackVolume(+e.target.value / 100.0)
+                                    }} />
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div >
+                </div >
+            </div>
         </>
     )
 }
