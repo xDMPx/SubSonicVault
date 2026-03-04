@@ -40,13 +40,13 @@ function App() {
         if (audio_ref.current === null) return;
         if (load_audio.current) {
             load_audio.current = false;
-            fetchRandomAudioFile(audio_files).then(href => {
+            fetchRandomAudioFile(audio_files).then(({ href }) => {
                 if (audio_ref.current === null) return;
                 audio_ref.current.src = href;
             });
         }
         audio_ref.current.onended = () => {
-            fetchRandomAudioFile(audio_files).then(href => {
+            fetchRandomAudioFile(audio_files).then(({ href }) => {
                 if (audio_ref.current === null) return;
                 window.URL.revokeObjectURL(audio_ref.current.src);
                 audio_ref.current.src = href;
@@ -232,9 +232,9 @@ function VolumeButtonIcon({ is_muted }: { is_muted: boolean }) {
 }
 
 interface AudioFile {
-    id: String,
-    path: String,
-    mime: String,
+    id: string,
+    path: string,
+    mime: string,
 }
 
 async function fetchAudioFiles(): Promise<AudioFile[]> {
@@ -251,8 +251,17 @@ async function fetchAudioFiles(): Promise<AudioFile[]> {
     return response.data;
 }
 
-async function fetchRandomAudioFile(audio_files: AudioFile[]): Promise<string> {
-    const id = audio_files.at(Math.floor(Math.random() * audio_files.length))?.id;
+interface AudioFileBlob {
+    href: string,
+    id: string
+}
+
+async function fetchRandomAudioFile(audio_files: AudioFile[]): Promise<AudioFileBlob> {
+    const id = audio_files.at(Math.floor(Math.random() * audio_files.length))?.id!;
+    return fetchAudioFileById(id);
+}
+
+async function fetchAudioFileById(id: string): Promise<AudioFileBlob> {
     let url = `/file/${id}`;
     if (import.meta.env.DEV) {
         url = `http://localhost:65421${url}`;
@@ -265,11 +274,11 @@ async function fetchRandomAudioFile(audio_files: AudioFile[]): Promise<string> {
 
     const href = window.URL.createObjectURL(response.data);
 
-    return href;
+    return { href, id };
 }
 
 async function onPlayNextClick(audio_ref: RefObject<HTMLAudioElement | null>, audio_files: AudioFile[]) {
-    fetchRandomAudioFile(audio_files).then(href => {
+    fetchRandomAudioFile(audio_files).then(({ href }) => {
         if (audio_ref.current === null) return;
         window.URL.revokeObjectURL(audio_ref.current.src);
         audio_ref.current.src = href;
