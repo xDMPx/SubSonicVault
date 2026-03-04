@@ -17,6 +17,9 @@ function App() {
     const fetch_audio_files = useRef(true);
     const load_audio = useRef(true);
 
+    const history = useRef([] as string[]);
+    const current_his_index = useRef(0);
+
     const audio_ref = useRef<HTMLAudioElement>(null);
     const mediaInfoRef = useRef<MediaInfo<'object'> | null>(null);
     const [title, setTitle] = useState("Audio title");
@@ -40,18 +43,31 @@ function App() {
         if (audio_ref.current === null) return;
         if (load_audio.current) {
             load_audio.current = false;
-            fetchRandomAudioFile(audio_files).then(({ href }) => {
+            fetchRandomAudioFile(audio_files).then(({ id, href }) => {
                 if (audio_ref.current === null) return;
+                history.current.push(id);
                 audio_ref.current.src = href;
             });
         }
         audio_ref.current.onended = () => {
-            fetchRandomAudioFile(audio_files).then(({ href }) => {
-                if (audio_ref.current === null) return;
-                window.URL.revokeObjectURL(audio_ref.current.src);
-                audio_ref.current.src = href;
-                audio_ref.current.play();
-            })
+            if (audio_ref.current === null) return;
+            window.URL.revokeObjectURL(audio_ref.current.src);
+            current_his_index.current++;
+            if (current_his_index.current === history.current.length) {
+                fetchRandomAudioFile(audio_files).then(({ id, href }) => {
+                    if (audio_ref.current === null) return;
+                    history.current.push(id);
+                    audio_ref.current.src = href;
+                    audio_ref.current.play();
+                });
+            } else {
+                const audio_id = history.current[current_his_index.current];
+                fetchAudioFileById(audio_id).then(({ href }) => {
+                    if (audio_ref.current === null) return;
+                    audio_ref.current.src = href;
+                    audio_ref.current.play();
+                });
+            }
         }
     }, [audio_files, audio_ref]);
 
@@ -76,10 +92,10 @@ function App() {
 
     useEffect(() => {
         navigator.mediaSession.setActionHandler('previoustrack', () => {
-            onPlayPrevClick(audio_ref);
+            onPlayPrevClick(audio_ref, history, current_his_index);
         });
         navigator.mediaSession.setActionHandler('nexttrack', () => {
-            onPlayNextClick(audio_ref, audio_files);
+            onPlayNextClick(audio_ref, audio_files, history, current_his_index);
         });
         navigator.mediaSession.setActionHandler('play', () => {
             audio_ref.current?.play();
@@ -89,7 +105,7 @@ function App() {
             audio_ref.current?.pause();
             setIsPlaying(false);
         });
-    }, []);
+    }, [audio_files]);
 
     useEffect(() => {
         if (audio_ref.current === null) return;
@@ -187,13 +203,13 @@ function App() {
                                 <p className="text-right">{toHHMMSS(Math.ceil(duration))}</p>
                             </div>
                             <div className="relative flex items-center justify-center gap-1">
-                                <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayPrevClick(audio_ref)}>
+                                <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayPrevClick(audio_ref, history, current_his_index)}>
                                     <img src={play_prev_svg} alt='play previous' width="38" />
                                 </button>
                                 <button className="btn btn-primary btn-xl btn-circle" onClick={() => onPlayPauseClick()}>
                                     <PlayPauseButtonIcon is_playing={is_playing} />
                                 </button>
-                                <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayNextClick(audio_ref, audio_files)}>
+                                <button className="btn btn-primary btn-l btn-circle" onClick={() => onPlayNextClick(audio_ref, audio_files, history, current_his_index)}>
                                     <img src={play_next_svg} alt='play next' width="38" />
                                 </button>
                             </div>
@@ -277,18 +293,46 @@ async function fetchAudioFileById(id: string): Promise<AudioFileBlob> {
     return { href, id };
 }
 
-async function onPlayNextClick(audio_ref: RefObject<HTMLAudioElement | null>, audio_files: AudioFile[]) {
-    fetchRandomAudioFile(audio_files).then(({ href }) => {
-        if (audio_ref.current === null) return;
-        window.URL.revokeObjectURL(audio_ref.current.src);
-        audio_ref.current.src = href;
-        audio_ref.current.play();
-    });
+async function onPlayNextClick(
+    audio_ref: RefObject<HTMLAudioElement | null>, audio_files: AudioFile[],
+    history: RefObject<string[]>, current_his_index: RefObject<number>) {
+    if (audio_ref.current === null) return;
+    window.URL.revokeObjectURL(audio_ref.current.src);
+    current_his_index.current++;
+    if (current_his_index.current === history.current.length) {
+        fetchRandomAudioFile(audio_files).then(({ id, href }) => {
+            if (audio_ref.current === null) return;
+            history.current.push(id);
+            audio_ref.current.src = href;
+            audio_ref.current.play();
+        });
+    } else {
+        const audio_id = history.current[current_his_index.current];
+        fetchAudioFileById(audio_id).then(({ href }) => {
+            if (audio_ref.current === null) return;
+            audio_ref.current.src = href;
+            audio_ref.current.play();
+        });
+    }
 }
 
-async function onPlayPrevClick(audio_ref: RefObject<HTMLAudioElement | null>) {
-    if (audio_ref.current === null) return;
-    audio_ref.current.currentTime = 0.0;
+async function onPlayPrevClick(
+    audio_ref: RefObject<HTMLAudioElement | null>,
+    history: RefObject<string[]>, current_his_index: RefObject<number>) {
+    current_his_index.current--;
+    if (current_his_index.current < 0) {
+        current_his_index.current = 0;
+        if (audio_ref.current === null) return;
+        audio_ref.current.currentTime = 0.0;
+    } else {
+        const audio_id = history.current[current_his_index.current];
+        fetchAudioFileById(audio_id).then(({ href }) => {
+            if (audio_ref.current === null) return;
+            window.URL.revokeObjectURL(audio_ref.current.src);
+            audio_ref.current.src = href;
+            audio_ref.current.play();
+        });
+    }
 }
 
 function toHHMMSS(sec: number): string {
