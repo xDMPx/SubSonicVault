@@ -14,8 +14,8 @@ import type { MediaInfo, MediaInfoResult } from 'mediainfo.js';
 import mediaInfoWasmUrl from 'mediainfo.js/MediaInfoModule.wasm?url';
 
 function App() {
-    let fetch_audio_files = true;
-    let load_audio = true;
+    const fetch_audio_files = useRef(true);
+    const load_audio = useRef(true);
 
     const audio_ref = useRef<HTMLAudioElement>(null);
     const mediaInfoRef = useRef<MediaInfo<'object'> | null>(null);
@@ -28,8 +28,8 @@ function App() {
     const [audio_files, setAudioFiles] = useState([] as AudioFile[]);
 
     useEffect(() => {
-        if (!fetch_audio_files) return;
-        fetch_audio_files = false;
+        if (!fetch_audio_files.current) return;
+        fetch_audio_files.current = false;
         fetchAudioFiles().then((audio_files) => {
             setAudioFiles(audio_files);
         });
@@ -38,8 +38,8 @@ function App() {
     useEffect(() => {
         if (audio_files.length == 0) return;
         if (audio_ref.current === null) return;
-        if (load_audio) {
-            load_audio = false;
+        if (load_audio.current) {
+            load_audio.current = false;
             fetchRandomAudioFile(audio_files).then(href => {
                 if (audio_ref.current === null) return;
                 audio_ref.current.src = href;
