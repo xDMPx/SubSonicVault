@@ -158,11 +158,6 @@ function App() {
     useEffect(() => {
         if (audio_ref.current === null) return;
         audio_ref.current.volume = playback_volume;
-        if (playback_volume == 0.0) {
-            setIsMuted(true);
-        } else {
-            setIsMuted(false);
-        }
     }, [playback_volume]);
 
     function seekToPosition(pos: number) {
@@ -176,6 +171,15 @@ function App() {
             audio_ref.current?.pause();
         } else {
             audio_ref.current?.play();
+        }
+    }
+
+    function setPlayerVolume(playback_volume: number) {
+        setPlaybackVolume(playback_volume / 100.0);
+        if (playback_volume === 0.0) {
+            setIsMuted(true);
+        } else {
+            setIsMuted(false);
         }
     }
 
@@ -222,9 +226,7 @@ function App() {
                                         <VolumeButtonIcon is_muted={is_muted} />
                                     </button>
                                     <div className="w-0 overflow-hidden opacity-0 group-hover:w-32 group-hover:opacity-100">
-                                        <input type="range" min="0" value={playback_volume * 100} max="100" className="range range-xs range-primary w-full" onChange={(e) => {
-                                            setPlaybackVolume(+e.target.value / 100.0)
-                                        }} />
+                                        <input type="range" min="0" value={playback_volume * 100} max="100" className="range range-xs range-primary w-full" onChange={(e) => setPlayerVolume(+e.target.value)} />
                                     </div>
                                 </div>
                             </div>
