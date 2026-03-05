@@ -10,7 +10,7 @@ import volume_off_svg from './assets/volume_off_24dp_E3E3E3_FILL0_wght400_GRAD0_
 import axios, { type AxiosResponse } from 'axios';
 
 import mediaInfoFactory from 'mediainfo.js';
-import type { MediaInfo, MediaInfoResult } from 'mediainfo.js';
+import type { MediaInfo } from 'mediainfo.js';
 import mediaInfoWasmUrl from 'mediainfo.js/MediaInfoModule.wasm?url';
 
 function App() {
@@ -118,28 +118,21 @@ function App() {
             setIsPlaying(false);
         }
 
-        audio_ref.current.onloadedmetadata = () => {
-            setDuration(audio_ref.current!.duration);
-            getMetadataFromBlob(mediaInfoRef, audio_ref.current!.src).then(metadata => {
-                if (metadata === undefined) return;
-                const track = metadata.media?.track.at(0);
-                if (track?.['@type'] !== 'General') return;
-                const title = track.Title;
-                if (title === undefined) return;
+        audio_ref.current.onloadstart = () => {
+            const id = history.current[current_his_index.current];
+            fetchAudioFileMetadata(id).then(metadata => {
+                const duration = metadata.duration;
+                setDuration(duration);
+                const title = metadata.title;
+                if (title === null) return;
                 setTitle(title);
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: title,
-                });
-                const performer = track.Performer;
-                if (performer === undefined) return;
-                setTitle(title);
+
+                const performer = metadata.artist;
+                if (performer === null) return;
                 setPerformer(performer);
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: title,
-                    artist: performer
-                });
             });
         }
+
         audio_ref.current.ontimeupdate = () => {
             setPosition(Math.ceil(audio_ref.current!.currentTime));
         }
@@ -300,6 +293,32 @@ async function fetchAudioFileById(id: string): Promise<AudioFileBlob> {
     return { href, id };
 }
 
+interface AudioFileMetadata {
+    title: string | null,
+    artist: string | null,
+    album: string | null,
+    genre: string | null,
+    release_year: string | null,
+    artwork_url: string | null,
+    duration: number,
+}
+
+async function fetchAudioFileMetadata(id: string): Promise<AudioFileMetadata> {
+    let url = `/file/${id}/metadata`;
+    if (import.meta.env.DEV) {
+        url = `http://localhost:65421${url}`;
+    }
+    const response = await axios({
+        method: 'get',
+        url,
+        responseType: 'json'
+    });
+
+
+
+    return response.data;
+}
+
 async function onPlayNextClick(
     audio_ref: RefObject<HTMLAudioElement | null>, audio_files: AudioFile[],
     history: RefObject<string[]>, current_his_index: RefObject<number>) {
@@ -355,25 +374,6 @@ function toHHMMSS(sec: number): string {
 
     if (h == 0) return `${mm}:${ss}`;
     return `${hh}:${mm}:${ss}`;
-}
-
-async function getMetadataFromBlob(media_info_ref: RefObject<MediaInfo<"object"> | null>, blob_href: string): Promise<MediaInfoResult | void> {
-    const blob = await fetch(blob_href).then((r) => r.blob());
-    const readChunk = async (chunkSize: number, offset: number): Promise<Uint8Array> => {
-        const end = Math.min(offset + chunkSize, blob.size);
-        const slice = blob.slice(offset, end);
-        const arrayBuffer = await slice.arrayBuffer();
-        return new Uint8Array(arrayBuffer);
-    };
-
-    if (media_info_ref.current === null) return;
-    const res = await media_info_ref.current
-        .analyzeData(blob.size, readChunk)
-        .catch((error) => {
-            console.error(error);
-        });
-
-    return res;
 }
 
 export default App;
