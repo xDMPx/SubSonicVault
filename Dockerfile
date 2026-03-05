@@ -1,15 +1,17 @@
-FROM rust:1.92.0
+FROM node:24-alpine as player-build
 
 WORKDIR /usr/src/myapp
 COPY . .
-
-RUN cargo install --path .
-RUN apt update
-RUN apt install nodejs npm -y
 WORKDIR /usr/src/myapp/player
 RUN npm install
 RUN npm run build
-RUN mkdir /vault
+
+FROM rust:1.92.0
 
 WORKDIR /usr/src/myapp
+COPY --from=player-build /usr/src/myapp /usr/src/myapp
+
+RUN cargo install --path .
+RUN mkdir /vault
+
 CMD ["subsonic_vault", "/vault"]
