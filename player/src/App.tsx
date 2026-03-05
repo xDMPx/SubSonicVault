@@ -23,6 +23,7 @@ function App() {
     const audio_ref = useRef<HTMLAudioElement>(null);
     const mediaInfoRef = useRef<MediaInfo<'object'> | null>(null);
     const [title, setTitle] = useState("Audio title");
+    const [performer, setPerformer] = useState("Audio performer");
     const [position, setPosition] = useState(0.0);
     const [duration, setDuration] = useState(1.0);
     const [is_playing, setIsPlaying] = useState(false);
@@ -131,7 +132,8 @@ function App() {
                 });
                 const performer = track.Performer;
                 if (performer === undefined) return;
-                setTitle(`${title} ⭘  ${performer}`);
+                setTitle(title);
+                setPerformer(performer);
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: title,
                     artist: performer
@@ -195,6 +197,7 @@ function App() {
                         </figure>
                         <div className="card-body">
                             <h2 className="card-title mx-auto">{title}</h2>
+                            <h2 className="card-title mx-auto text-base">{performer}</h2>
                             <input type="range" min="0.0" value={position} max={duration} className="range range-xs w-full" onChange={(e) => {
                                 seekToPosition(+e.target.value)
                             }} />
