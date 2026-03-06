@@ -9,10 +9,6 @@ import volume_up_svg from './assets/volume_up_24dp_E3E3E3_FILL0_wght400_GRAD0_op
 import volume_off_svg from './assets/volume_off_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import axios, { type AxiosResponse } from 'axios';
 
-import mediaInfoFactory from 'mediainfo.js';
-import type { MediaInfo } from 'mediainfo.js';
-import mediaInfoWasmUrl from 'mediainfo.js/MediaInfoModule.wasm?url';
-
 function App() {
     const fetch_audio_files = useRef(true);
     const load_audio = useRef(true);
@@ -21,7 +17,6 @@ function App() {
     const current_his_index = useRef(0);
 
     const audio_ref = useRef<HTMLAudioElement>(null);
-    const mediaInfoRef = useRef<MediaInfo<'object'> | null>(null);
     const [title, setTitle] = useState("Audio title");
     const [performer, setPerformer] = useState("Audio performer");
     const [position, setPosition] = useState(0.0);
@@ -71,25 +66,6 @@ function App() {
             }
         }
     }, [audio_files, audio_ref]);
-
-    useEffect(() => {
-        mediaInfoFactory({
-            format: 'object',
-            locateFile: (path, prefix) =>
-                path === 'MediaInfoModule.wasm' ? mediaInfoWasmUrl : `${prefix}${path}`,
-        }).then((mi) => {
-            mediaInfoRef.current = mi;
-        }).catch((error: unknown) => {
-            console.error("mediaInfoFactory Error");
-            console.error(error);
-        });
-
-        return () => {
-            if (mediaInfoRef.current) {
-                mediaInfoRef.current.close()
-            }
-        };
-    }, []);
 
     useEffect(() => {
         navigator.mediaSession.setActionHandler('previoustrack', () => {
