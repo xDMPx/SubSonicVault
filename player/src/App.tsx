@@ -25,6 +25,7 @@ function App() {
     const [is_muted, setIsMuted] = useState(false);
     const [playback_volume, setPlaybackVolume] = useState(1.0);
     const [audio_files, setAudioFiles] = useState([] as AudioFile[]);
+    const [coverart_url, setCoverArtURL] = useState(music_video_svg);
 
     useEffect(() => {
         if (!fetch_audio_files.current) return;
@@ -97,6 +98,7 @@ function App() {
         audio_ref.current.onloadstart = () => {
             const id = history.current[current_his_index.current];
             fetchAudioFileMetadata(id).then(metadata => {
+                setCoverArtURL(music_video_svg);
                 const duration = metadata.duration;
                 setDuration(duration);
                 const title = metadata.title;
@@ -110,6 +112,18 @@ function App() {
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: title,
                     artist: performer,
+                });
+
+                const artwork_url = metadata.artwork_url;
+                if (artwork_url === null) return;
+                console.log(artwork_url);
+                setCoverArtURL(artwork_url);
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: title,
+                    artist: performer,
+                    artwork: [
+                        { src: artwork_url }
+                    ]
                 });
             });
         }
@@ -171,8 +185,8 @@ function App() {
                 <div className="flex flex-1 justify-center place-items-center">
                     <div className="card w-full h-full sm:h-min sm:w-96 bg-base-100 shadow-lg">
                         <div className="my-auto">
-                            <figure>
-                                <img src={music_video_svg} alt='music video icon' width="256" />
+                            <figure className="pt-2">
+                                <img src={coverart_url} alt='music video icon' width="256" />
                             </figure>
                             <div className="card-body">
                                 <h2 className="card-title mx-auto">{title}</h2>
@@ -294,8 +308,6 @@ async function fetchAudioFileMetadata(id: string): Promise<AudioFileMetadata> {
         url,
         responseType: 'json'
     });
-
-
 
     return response.data;
 }
