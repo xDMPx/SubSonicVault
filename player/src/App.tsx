@@ -130,6 +130,11 @@ function App() {
                 const performer = metadata.artist;
                 if (performer === null) return;
                 setPerformer(performer);
+
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: title,
+                    artist: performer,
+                });
             });
         }
 
