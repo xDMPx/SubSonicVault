@@ -7,6 +7,7 @@ import play_next_svg from './assets/skip_next_24dp_E3E3E3_FILL0_wght400_GRAD0_op
 import play_prev_svg from './assets/skip_previous_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import volume_up_svg from './assets/volume_up_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
 import volume_off_svg from './assets/volume_off_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg';
+import { type AudioFile, type AudioFileBlob, type AudioFileMetadata } from './interface.mts';
 import axios, { type AxiosResponse } from 'axios';
 
 function App() {
@@ -244,12 +245,6 @@ function VolumeButtonIcon({ is_muted }: { is_muted: boolean }) {
     }
 }
 
-interface AudioFile {
-    id: string,
-    path: string,
-    mime: string,
-}
-
 async function fetchAudioFiles(): Promise<AudioFile[]> {
     let url = '/files';
     if (import.meta.env.DEV) {
@@ -262,11 +257,6 @@ async function fetchAudioFiles(): Promise<AudioFile[]> {
     });
 
     return response.data;
-}
-
-interface AudioFileBlob {
-    href: string,
-    id: string
 }
 
 async function fetchRandomAudioFile(audio_files: AudioFile[]): Promise<AudioFileBlob> {
@@ -288,16 +278,6 @@ async function fetchAudioFileById(id: string): Promise<AudioFileBlob> {
     const href = window.URL.createObjectURL(response.data);
 
     return { href, id };
-}
-
-interface AudioFileMetadata {
-    title: string | null,
-    artist: string | null,
-    album: string | null,
-    genre: string | null,
-    release_year: string | null,
-    artwork_url: string | null,
-    duration: number,
 }
 
 async function fetchAudioFileMetadata(id: string): Promise<AudioFileMetadata> {
