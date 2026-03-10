@@ -104,10 +104,12 @@ function App() {
                 const title = metadata.title;
                 if (title === null) return;
                 setTitle(title);
+                document.title = `${title} || SubSonicVault Player`;
 
                 const performer = metadata.artist;
                 if (performer === null) return;
                 setPerformer(performer);
+                document.title = `${title} ⭘  ${performer} || SubSonicVault Player`;
 
                 navigator.mediaSession.metadata = new MediaMetadata({
                     title: title,
