@@ -168,10 +168,10 @@ pub fn traverse_dir(
     Ok((audiofiles, cache))
 }
 
-pub fn extension_to_mime(file_ext: &std::ffi::OsStr) -> String {
-    match file_ext.to_str().unwrap() {
-        "m4b" | "m4a" => "audio/mp4".to_owned(),
-        ext => format!("audio/{}", ext),
+pub fn extension_to_mime(file_ext: &std::ffi::OsStr) -> Option<String> {
+    match file_ext.to_str()? {
+        "m4b" | "m4a" => Some("audio/mp4".to_owned()),
+        ext => Some(format!("audio/{}", ext)),
     }
 }
 

@@ -86,9 +86,10 @@ async fn home(data: web::Data<AppState>) -> impl Responder {
     let file = audiofiles.skip(i - 1).next().unwrap();
     let file_ext = file.extension().unwrap();
     let file_name = file.file_name().unwrap();
+    let mime = extension_to_mime(file_ext).unwrap();
 
     HttpResponse::Ok()
-        .content_type(extension_to_mime(file_ext))
+        .content_type(mime)
         .body(std::fs::read(file).unwrap())
         .customize()
         .insert_header((
@@ -119,10 +120,13 @@ async fn get_files(data: web::Data<AppState>) -> impl Responder {
     let audiofiles = data.audiofiles.lock().unwrap();
     let audiofiles: Vec<AudioFile> = audiofiles
         .iter()
-        .map(|(hash, f)| AudioFile {
-            id: hash.to_owned(),
-            path: format!("{f:?}"),
-            mime: extension_to_mime(f.extension().unwrap()),
+        .map(|(hash, f)| {
+            let mime = extension_to_mime(f.extension().unwrap()).unwrap();
+            AudioFile {
+                id: hash.to_owned(),
+                path: format!("{f:?}"),
+                mime,
+            }
         })
         .collect();
 
@@ -141,9 +145,10 @@ async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<String>) -> i
     let file = &audiofiles[&hash];
     let file_ext = file.extension().unwrap();
     let file_name = file.file_name().unwrap();
+    let mime = extension_to_mime(file_ext).unwrap();
 
     HttpResponse::Ok()
-        .content_type(extension_to_mime(file_ext))
+        .content_type(mime)
         .body(std::fs::read(file).unwrap())
         .customize()
         .insert_header((
