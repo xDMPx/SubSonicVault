@@ -77,25 +77,40 @@ async fn main() -> std::io::Result<()> {
 
 #[get("/")]
 async fn home(data: web::Data<AppState>) -> impl Responder {
-    let audiofiles = data.audiofiles.lock().unwrap();
-    let audiofiles_len = audiofiles.values().count();
-    let audiofiles = audiofiles.values();
-    let mut rng = rand::rng();
-    let i = rng.random_range(..audiofiles_len);
+    if let Ok(audiofiles) = data.audiofiles.lock() {
+        let audiofiles_len = audiofiles.values().count();
+        let audiofiles = audiofiles.values();
+        let mut rng = rand::rng();
+        let i = rng.random_range(..audiofiles_len);
 
-    let file = audiofiles.skip(i - 1).next().unwrap();
-    let file_ext = file.extension().unwrap();
-    let file_name = file.file_name().unwrap();
-    let mime = extension_to_mime(file_ext).unwrap();
+        let values = (|| {
+            let file = audiofiles.skip(i - 1).next()?;
+            let file_ext = file.extension()?;
+            let file_name = file.file_name()?;
+            let mime = extension_to_mime(file_ext)?;
+            let file_body = std::fs::read(file).ok()?;
+            Some((file_body, file_name, mime))
+        })();
 
-    HttpResponse::Ok()
-        .content_type(mime)
-        .body(std::fs::read(file).unwrap())
-        .customize()
-        .insert_header((
-            "Content-Disposition",
-            format!("inline; filename*=UTF-8''{}", file_name.to_string_lossy()),
-        ))
+        if let Some((file_body, file_name, mime)) = values {
+            HttpResponse::Ok()
+                .content_type(mime)
+                .body(file_body)
+                .customize()
+                .insert_header((
+                    "Content-Disposition",
+                    format!("inline; filename*=UTF-8''{}", file_name.to_string_lossy()),
+                ))
+        } else {
+            HttpResponse::InternalServerError()
+                .body("Internal Server Error")
+                .customize()
+        }
+    } else {
+        HttpResponse::InternalServerError()
+            .body("Internal Server Error")
+            .customize()
+    }
 }
 
 #[get("/scan")]
