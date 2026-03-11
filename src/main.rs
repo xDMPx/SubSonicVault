@@ -237,13 +237,14 @@ async fn get_file_artwork_by_id(
 
 #[get("/ping")]
 async fn ping() -> impl Responder {
-    let body = serde_json::to_vec(&PingResponse {
+    if let Ok(body) = serde_json::to_vec(&PingResponse {
         status: "ok".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
-    })
-    .unwrap();
-
-    HttpResponse::Ok()
-        .content_type("application/json; charset=utf-8")
-        .body(body)
+    }) {
+        HttpResponse::Ok()
+            .content_type("application/json; charset=utf-8")
+            .body(body)
+    } else {
+        HttpResponse::InternalServerError().body("Internal Server Error")
+    }
 }
