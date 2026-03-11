@@ -115,19 +115,28 @@ async fn home(data: web::Data<AppState>) -> impl Responder {
 
 #[get("/scan")]
 async fn scan(data: web::Data<AppState>) -> impl Responder {
-    let mut cache = data.hashing_cache.lock().unwrap();
-    let (files, updated_cache) = traverse_dir(&data.base_dir, cache.clone()).unwrap();
-    let mut audiofiles = data.audiofiles.lock().unwrap();
-    *audiofiles = files.clone();
-    *cache = updated_cache;
+    if let Ok(mut cache) = data.hashing_cache.lock() {
+        if let Ok((files, updated_cache)) = traverse_dir(&data.base_dir, cache.clone()) {
+            if let Ok(mut audiofiles) = data.audiofiles.lock() {
+                *audiofiles = files.clone();
+                *cache = updated_cache;
 
-    let files = files.iter().map(|(k, v)| format!("{}:{:?}\n", k, v));
-    let mut files = files.collect::<Vec<String>>();
-    files.sort_unstable();
+                let files = files.iter().map(|(k, v)| format!("{}:{:?}\n", k, v));
+                let mut files = files.collect::<Vec<String>>();
+                files.sort_unstable();
 
-    HttpResponse::Ok()
-        .content_type("text/plain; charset=utf-8")
-        .body(files.concat())
+                HttpResponse::Ok()
+                    .content_type("text/plain; charset=utf-8")
+                    .body(files.concat())
+            } else {
+                HttpResponse::InternalServerError().body("Internal Server Error")
+            }
+        } else {
+            HttpResponse::InternalServerError().body("Internal Server Error")
+        }
+    } else {
+        HttpResponse::InternalServerError().body("Internal Server Error")
+    }
 }
 
 #[get("/files")]
