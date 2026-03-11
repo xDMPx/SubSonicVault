@@ -52,6 +52,25 @@ pub enum Error {
     InvalidOptionsStructure,
 }
 
+#[derive(Debug)]
+pub enum TraverseError {
+    HashError(HashError),
+    IOError(std::io::Error),
+    ThreadError(String),
+}
+
+impl From<HashError> for TraverseError {
+    fn from(err: HashError) -> Self {
+        TraverseError::HashError(err)
+    }
+}
+
+impl From<std::io::Error> for TraverseError {
+    fn from(err: std::io::Error) -> Self {
+        TraverseError::IOError(err)
+    }
+}
+
 pub fn is_audiofile(path: std::path::PathBuf) -> bool {
     if let Some(ext) = path.extension() {
         if ext == "m4b" {
@@ -80,12 +99,15 @@ pub fn traverse_dir(
         std::collections::HashMap<String, std::path::PathBuf>,
         std::collections::HashMap<std::path::PathBuf, CachedFileHash>,
     ),
-    HashError,
+    TraverseError,
 > {
-    let mut dir_list = vec![std::path::PathBuf::from_str(base_dir).unwrap()];
+    let base_dir_path = std::path::PathBuf::from_str(base_dir)
+        .expect(&format!("Infallible: from_str({base_dir:?}) to PathBuf"));
+    let mut dir_list = vec![base_dir_path];
     let mut audiofiles_paths = Vec::new();
     while dir_list.len() > 0 {
-        let entries = std::fs::read_dir(dir_list.pop().unwrap()).unwrap();
+        let path = dir_list.pop().expect("dir_list should not be empty");
+        let entries = std::fs::read_dir(path)?;
         for entry in entries {
             if let Ok(file) = entry {
                 if let Ok(metadata) = std::fs::metadata(file.path()) {
@@ -107,12 +129,16 @@ pub fn traverse_dir(
         .into_iter()
         .filter(|path| {
             if let Some(fhc) = cache.get(path) {
-                let metadata = std::fs::metadata(path).unwrap();
-                if fhc.mod_date == metadata.modified().unwrap() {
-                    cached.insert(fhc.hash.clone(), path.clone());
-                    false
+                if let Ok(metadata) = std::fs::metadata(path) {
+                    let modified = metadata.modified();
+                    if modified.is_ok_and(|m| m == fhc.mod_date) {
+                        cached.insert(fhc.hash.clone(), path.clone());
+                        false
+                    } else {
+                        true
+                    }
                 } else {
-                    true
+                    false
                 }
             } else {
                 true
@@ -126,7 +152,10 @@ pub fn traverse_dir(
         .unwrap_or(2)
         - 1;
 
-    let mut audiofiles = crossbeam::scope(|scope| {
+    let audiofiles: Result<
+        std::collections::HashMap<std::string::String, std::path::PathBuf>,
+        TraverseError,
+    > = crossbeam::scope(|scope| {
         let mut audiofiles = std::collections::HashMap::new();
 
         let mut handles = vec![];
@@ -136,34 +165,38 @@ pub fn traverse_dir(
             let handle = scope.spawn(move |_| {
                 let mut audiofiles = vec![];
                 for path in chunk {
-                    audiofiles.push((hex_encode(md5_hash(&path).unwrap()), path));
+                    audiofiles.push((hex_encode(md5_hash(&path)?), path));
                 }
-                audiofiles
+                Ok(audiofiles)
             });
             handles.push(handle);
         }
         for path in audiofiles_paths {
-            audiofiles.insert(hex_encode(md5_hash(&path).unwrap()), path);
+            audiofiles.insert(hex_encode(md5_hash(&path)?), path);
         }
         for handle in handles {
-            audiofiles.extend(handle.join().unwrap());
+            let files: Result<Vec<(String, std::path::PathBuf)>, TraverseError> = handle
+                .join()
+                .map_err(|err| TraverseError::ThreadError(format!("{err:?}")))?;
+            audiofiles.extend(files?);
         }
 
-        audiofiles
+        Ok(audiofiles)
     })
-    .unwrap();
+    .map_err(|err| TraverseError::ThreadError(format!("{err:?}")))?;
+    let mut audiofiles = audiofiles?;
     for (hash, path) in audiofiles.iter() {
-        let metadata = std::fs::metadata(path).unwrap();
+        let metadata = std::fs::metadata(path)?;
         cache.insert(
             path.to_path_buf(),
             CachedFileHash {
                 hash: hash.clone(),
-                mod_date: metadata.modified().unwrap(),
+                mod_date: metadata.modified()?,
             },
         );
     }
     audiofiles.extend(cached);
-    println!("{:?}", duration.elapsed().unwrap().as_secs_f64());
+    println!("{:?}", duration.elapsed().map(|d| d.as_secs_f64()));
 
     Ok((audiofiles, cache))
 }
