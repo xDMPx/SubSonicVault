@@ -254,18 +254,22 @@ async fn get_file_artwork_by_id(
     path: web::Path<String>,
 ) -> impl Responder {
     let hash = path.into_inner();
-    let audiofiles = data.audiofiles.lock().unwrap();
+    if let Ok(audiofiles) = data.audiofiles.lock() {
+        if let Some(file) = &audiofiles.get(&hash) {
+            if let Ok(tagged_file) = lofty::read_from_path(file) {
+                let artwork = tagged_file.tags().iter().flat_map(|t| t.pictures()).next();
 
-    let file = &audiofiles[&hash];
-    let tagged_file = lofty::read_from_path(file).unwrap();
-
-    let artwork = tagged_file.tags().iter().flat_map(|t| t.pictures()).next();
-
-    if let Some(artwork) = artwork {
-        HttpResponse::Ok().body(artwork.data().to_vec())
-    } else {
-        HttpResponse::NotFound().body("No embedded cover art")
+                if let Some(artwork) = artwork {
+                    return HttpResponse::Ok().body(artwork.data().to_vec());
+                } else {
+                    return HttpResponse::NotFound().body("No embedded cover art");
+                }
+            }
+        } else {
+            return HttpResponse::NotFound().body("Invalid hash");
+        }
     }
+    HttpResponse::InternalServerError().body("Internal Server Error")
 }
 
 #[get("/ping")]
