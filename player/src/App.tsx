@@ -48,24 +48,7 @@ function App() {
             });
         }
         audio_ref.current.onended = () => {
-            if (audio_ref.current === null) return;
-            window.URL.revokeObjectURL(audio_ref.current.src);
-            current_his_index.current++;
-            if (current_his_index.current === history.current.length) {
-                fetchRandomAudioFile(audio_files).then(({ id, href }) => {
-                    if (audio_ref.current === null) return;
-                    history.current.push(id);
-                    audio_ref.current.src = href;
-                    audio_ref.current.play();
-                });
-            } else {
-                const audio_id = history.current[current_his_index.current];
-                fetchAudioFileById(audio_id).then(({ href }) => {
-                    if (audio_ref.current === null) return;
-                    audio_ref.current.src = href;
-                    audio_ref.current.play();
-                });
-            }
+            onPlayNextClick(audio_ref, audio_files, history, current_his_index);
         }
     }, [audio_files, audio_ref]);
 
