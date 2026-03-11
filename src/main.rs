@@ -141,24 +141,28 @@ async fn scan(data: web::Data<AppState>) -> impl Responder {
 
 #[get("/files")]
 async fn get_files(data: web::Data<AppState>) -> impl Responder {
-    let audiofiles = data.audiofiles.lock().unwrap();
-    let audiofiles: Vec<AudioFile> = audiofiles
-        .iter()
-        .map(|(hash, f)| {
-            let mime = extension_to_mime(f.extension().unwrap()).unwrap();
-            AudioFile {
-                id: hash.to_owned(),
-                path: format!("{f:?}"),
-                mime,
-            }
-        })
-        .collect();
+    if let Ok(audiofiles) = data.audiofiles.lock() {
+        let audiofiles: Vec<AudioFile> = audiofiles
+            .iter()
+            .filter_map(|(hash, f)| {
+                let mime = extension_to_mime(f.extension()?)?;
+                Some(AudioFile {
+                    id: hash.to_owned(),
+                    path: format!("{f:?}"),
+                    mime,
+                })
+            })
+            .collect();
 
-    let audiofiles_json = serde_json::to_vec(&audiofiles).unwrap();
+        let audiofiles_json = serde_json::to_vec(&audiofiles);
 
-    HttpResponse::Ok()
-        .content_type("application/json; charset=utf-8")
-        .body(audiofiles_json)
+        if let Ok(audiofiles_json) = audiofiles_json {
+            return HttpResponse::Ok()
+                .content_type("application/json; charset=utf-8")
+                .body(audiofiles_json);
+        }
+    }
+    HttpResponse::InternalServerError().body("Internal Server Error")
 }
 
 #[get("/file/{id}")]
