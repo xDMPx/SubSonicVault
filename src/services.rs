@@ -1,5 +1,6 @@
 use crate::{
-    AppState, AudioFile, AudioFileMetadata, PingResponse, extension_to_mime, traverse_dir,
+    AppState, AudioFile, AudioFileMetadata, PingResponse, TraverseError, extension_to_mime,
+    traverse_dir,
 };
 use actix_web::{CustomizeResponder, HttpRequest, HttpResponse, Responder, get, web};
 use lofty::{
@@ -12,6 +13,13 @@ use rand::Rng;
 pub enum ServiceError {
     PoisonError,
     ValuesExtractionError,
+    TraverseError(TraverseError),
+}
+
+impl From<TraverseError> for ServiceError {
+    fn from(err: TraverseError) -> Self {
+        ServiceError::TraverseError(err)
+    }
 }
 
 #[get("/")]
@@ -58,28 +66,34 @@ fn _home(data: web::Data<AppState>) -> Result<CustomizeResponder<HttpResponse>, 
 
 #[get("/scan")]
 async fn scan(data: web::Data<AppState>) -> impl Responder {
-    if let Ok(mut cache) = data.hashing_cache.lock() {
-        if let Ok((files, updated_cache)) = traverse_dir(&data.base_dir, cache.clone()) {
-            if let Ok(mut audiofiles) = data.audiofiles.lock() {
-                *audiofiles = files.clone();
-                *cache = updated_cache;
-
-                let files = files.iter().map(|(k, v)| format!("{}:{:?}\n", k, v));
-                let mut files = files.collect::<Vec<String>>();
-                files.sort_unstable();
-
-                HttpResponse::Ok()
-                    .content_type("text/plain; charset=utf-8")
-                    .body(files.concat())
-            } else {
-                HttpResponse::InternalServerError().body("Internal Server Error")
-            }
-        } else {
-            HttpResponse::InternalServerError().body("Internal Server Error")
-        }
+    if let Ok(responder) = _scan(data) {
+        responder
     } else {
         HttpResponse::InternalServerError().body("Internal Server Error")
     }
+}
+
+fn _scan(data: web::Data<AppState>) -> Result<HttpResponse, ServiceError> {
+    let mut cache = data
+        .hashing_cache
+        .lock()
+        .map_err(|_| ServiceError::PoisonError)?;
+
+    let (files, updated_cache) = traverse_dir(&data.base_dir, cache.clone())?;
+    let mut audiofiles = data
+        .audiofiles
+        .lock()
+        .map_err(|_| ServiceError::PoisonError)?;
+    *audiofiles = files.clone();
+    *cache = updated_cache;
+
+    let files = files.iter().map(|(k, v)| format!("{}:{:?}\n", k, v));
+    let mut files = files.collect::<Vec<String>>();
+    files.sort_unstable();
+
+    return Ok(HttpResponse::Ok()
+        .content_type("text/plain; charset=utf-8")
+        .body(files.concat()));
 }
 
 #[get("/files")]
