@@ -1,49 +1,59 @@
 use crate::{
     AppState, AudioFile, AudioFileMetadata, PingResponse, extension_to_mime, traverse_dir,
 };
-use actix_web::{HttpRequest, HttpResponse, Responder, get, web};
+use actix_web::{CustomizeResponder, HttpRequest, HttpResponse, Responder, get, web};
 use lofty::{
     file::{AudioFile as LofyAudioFile, TaggedFileExt},
     tag::Accessor,
 };
 use rand::Rng;
 
+#[derive(Debug)]
+pub enum ServiceError {
+    PoisonError,
+    ValuesExtractionError,
+}
+
 #[get("/")]
 async fn home(data: web::Data<AppState>) -> impl Responder {
-    if let Ok(audiofiles) = data.audiofiles.lock() {
-        let audiofiles_len = audiofiles.values().count();
-        let audiofiles = audiofiles.values();
-        let mut rng = rand::rng();
-        let i = rng.random_range(..audiofiles_len);
-
-        let values = (|| {
-            let file = audiofiles.skip(i - 1).next()?;
-            let file_ext = file.extension()?;
-            let file_name = file.file_name()?;
-            let mime = extension_to_mime(file_ext)?;
-            let file_body = std::fs::read(file).ok()?;
-            Some((file_body, file_name, mime))
-        })();
-
-        if let Some((file_body, file_name, mime)) = values {
-            HttpResponse::Ok()
-                .content_type(mime)
-                .body(file_body)
-                .customize()
-                .insert_header((
-                    "Content-Disposition",
-                    format!("inline; filename*=UTF-8''{}", file_name.to_string_lossy()),
-                ))
-        } else {
-            HttpResponse::InternalServerError()
-                .body("Internal Server Error")
-                .customize()
-        }
+    if let Ok(responder) = _home(data) {
+        responder
     } else {
         HttpResponse::InternalServerError()
             .body("Internal Server Error")
             .customize()
     }
+}
+
+fn _home(data: web::Data<AppState>) -> Result<CustomizeResponder<HttpResponse>, ServiceError> {
+    let audiofiles = data
+        .audiofiles
+        .lock()
+        .map_err(|_| ServiceError::PoisonError)?;
+    let audiofiles_len = audiofiles.values().count();
+    let audiofiles = audiofiles.values();
+    let mut rng = rand::rng();
+    let i = rng.random_range(..audiofiles_len);
+
+    let values = (|| {
+        let file = audiofiles.skip(i - 1).next()?;
+        let file_ext = file.extension()?;
+        let file_name = file.file_name()?;
+        let mime = extension_to_mime(file_ext)?;
+        let file_body = std::fs::read(file).ok()?;
+        Some((file_body, file_name, mime))
+    })();
+
+    let (file_body, file_name, mime) = values.ok_or(ServiceError::ValuesExtractionError)?;
+
+    Ok(HttpResponse::Ok()
+        .content_type(mime)
+        .body(file_body)
+        .customize()
+        .insert_header((
+            "Content-Disposition",
+            format!("inline; filename*=UTF-8''{}", file_name.to_string_lossy()),
+        )))
 }
 
 #[get("/scan")]
