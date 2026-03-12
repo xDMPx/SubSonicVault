@@ -168,21 +168,37 @@ async fn get_files(data: web::Data<AppState>) -> impl Responder {
 #[get("/file/{id}")]
 async fn get_file_by_id(data: web::Data<AppState>, path: web::Path<String>) -> impl Responder {
     let hash = path.into_inner();
-    let audiofiles = data.audiofiles.lock().unwrap();
+    if let Ok(audiofiles) = data.audiofiles.lock() {
+        if let Some(file) = audiofiles.get(&hash) {
+            let values = (|| {
+                let file_ext = file.extension()?;
+                let file_name = file.file_name()?;
+                let mime = extension_to_mime(file_ext)?;
 
-    let file = &audiofiles[&hash];
-    let file_ext = file.extension().unwrap();
-    let file_name = file.file_name().unwrap();
-    let mime = extension_to_mime(file_ext).unwrap();
-
-    HttpResponse::Ok()
-        .content_type(mime)
-        .body(std::fs::read(file).unwrap())
+                let file_body = std::fs::read(file).ok()?;
+                Some((file_body, file_name, mime))
+            })();
+            if let Some((file_body, file_name, mime)) = values {
+                return HttpResponse::Ok()
+                    .content_type(mime)
+                    .body(file_body)
+                    .customize()
+                    .insert_header((
+                        "Content-Disposition",
+                        format!("inline; filename*=UTF-8''{}", file_name.to_string_lossy()),
+                    ));
+            } else {
+                return HttpResponse::InternalServerError()
+                    .body("Internal Server Error")
+                    .customize();
+            }
+        } else {
+            return HttpResponse::NotFound().body("Invalid hash").customize();
+        }
+    }
+    HttpResponse::InternalServerError()
+        .body("Internal Server Error")
         .customize()
-        .insert_header((
-            "Content-Disposition",
-            format!("inline; filename*=UTF-8''{}", file_name.to_string_lossy()),
-        ))
 }
 
 #[get("/file/{id}/metadata")]
