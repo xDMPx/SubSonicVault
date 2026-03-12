@@ -14,11 +14,18 @@ pub enum ServiceError {
     PoisonError,
     ValuesExtractionError,
     TraverseError(TraverseError),
+    SerdeJsonError(serde_json::Error),
 }
 
 impl From<TraverseError> for ServiceError {
     fn from(err: TraverseError) -> Self {
         ServiceError::TraverseError(err)
+    }
+}
+
+impl From<serde_json::Error> for ServiceError {
+    fn from(err: serde_json::Error) -> Self {
+        ServiceError::SerdeJsonError(err)
     }
 }
 
@@ -98,28 +105,35 @@ fn _scan(data: web::Data<AppState>) -> Result<HttpResponse, ServiceError> {
 
 #[get("/files")]
 async fn get_files(data: web::Data<AppState>) -> impl Responder {
-    if let Ok(audiofiles) = data.audiofiles.lock() {
-        let audiofiles: Vec<AudioFile> = audiofiles
-            .iter()
-            .filter_map(|(hash, f)| {
-                let mime = extension_to_mime(f.extension()?)?;
-                Some(AudioFile {
-                    id: hash.to_owned(),
-                    path: format!("{f:?}"),
-                    mime,
-                })
-            })
-            .collect();
-
-        let audiofiles_json = serde_json::to_vec(&audiofiles);
-
-        if let Ok(audiofiles_json) = audiofiles_json {
-            return HttpResponse::Ok()
-                .content_type("application/json; charset=utf-8")
-                .body(audiofiles_json);
-        }
+    if let Ok(responder) = _get_files(data) {
+        responder
+    } else {
+        HttpResponse::InternalServerError().body("Internal Server Error")
     }
-    HttpResponse::InternalServerError().body("Internal Server Error")
+}
+
+fn _get_files(data: web::Data<AppState>) -> Result<HttpResponse, ServiceError> {
+    let audiofiles = data
+        .audiofiles
+        .lock()
+        .map_err(|_| ServiceError::PoisonError)?;
+    let audiofiles: Vec<AudioFile> = audiofiles
+        .iter()
+        .filter_map(|(hash, f)| {
+            let mime = extension_to_mime(f.extension()?)?;
+            Some(AudioFile {
+                id: hash.to_owned(),
+                path: format!("{f:?}"),
+                mime,
+            })
+        })
+        .collect();
+
+    let audiofiles_json = serde_json::to_vec(&audiofiles)?;
+
+    Ok(HttpResponse::Ok()
+        .content_type("application/json; charset=utf-8")
+        .body(audiofiles_json))
 }
 
 #[get("/file/{id}")]
