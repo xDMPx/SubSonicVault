@@ -208,60 +208,69 @@ async fn get_file_metadata_by_id(
     path: web::Path<String>,
 ) -> impl Responder {
     let hash = path.into_inner();
-    let audiofiles = data.audiofiles.lock().unwrap();
+    if let Ok(audiofiles) = data.audiofiles.lock() {
+        if let Some(file) = audiofiles.get(&hash) {
+            if let Ok(tagged_file) = lofty::read_from_path(file) {
+                let title = tagged_file
+                    .tags()
+                    .iter()
+                    .find_map(|t| t.title())
+                    .map(|x| x.to_string());
+                let artist = tagged_file
+                    .tags()
+                    .iter()
+                    .find_map(|t| t.artist())
+                    .map(|x| x.to_string());
+                let album = tagged_file
+                    .tags()
+                    .iter()
+                    .find_map(|t| t.album())
+                    .map(|x| x.to_string());
+                let genre = tagged_file
+                    .tags()
+                    .iter()
+                    .find_map(|t| t.genre())
+                    .map(|x| x.to_string());
+                let release_year = tagged_file
+                    .tags()
+                    .iter()
+                    .find_map(|t| t.date())
+                    .map(|x| x.to_string());
+                let duration = tagged_file.properties().duration().as_secs();
 
-    let file = &audiofiles[&hash];
-    let tagged_file = lofty::read_from_path(file).unwrap();
+                let picture_count: u32 = tagged_file.tags().iter().map(|t| t.picture_count()).sum();
+                let artwork_url = if picture_count != 0 {
+                    let url = req.full_url().join("metadata/artwork");
+                    if let Ok(url) = url {
+                        Some(url.to_string())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
 
-    let title = tagged_file
-        .tags()
-        .iter()
-        .find_map(|t| t.title())
-        .map(|x| x.to_string());
-    let artist = tagged_file
-        .tags()
-        .iter()
-        .find_map(|t| t.artist())
-        .map(|x| x.to_string());
-    let album = tagged_file
-        .tags()
-        .iter()
-        .find_map(|t| t.album())
-        .map(|x| x.to_string());
-    let genre = tagged_file
-        .tags()
-        .iter()
-        .find_map(|t| t.genre())
-        .map(|x| x.to_string());
-    let release_year = tagged_file
-        .tags()
-        .iter()
-        .find_map(|t| t.date())
-        .map(|x| x.to_string());
-    let duration = tagged_file.properties().duration().as_secs();
+                let metadata = AudioFileMetadata {
+                    title,
+                    artist,
+                    album,
+                    genre,
+                    release_year,
+                    duration,
+                    artwork_url,
+                };
 
-    let picture_count: u32 = tagged_file.tags().iter().map(|t| t.picture_count()).sum();
-    let artwork_url = if picture_count != 0 {
-        Some(req.full_url().join("metadata/artwork").unwrap().to_string())
-    } else {
-        None
-    };
-
-    let metadata = AudioFileMetadata {
-        title,
-        artist,
-        album,
-        genre,
-        release_year,
-        duration,
-        artwork_url,
-    };
-
-    let metadata_json = serde_json::to_vec(&metadata).unwrap();
-
-    HttpResponse::Ok()
-        .content_type("application/json; charset=utf-8")
-        .body(metadata_json)
+                if let Ok(metadata_json) = serde_json::to_vec(&metadata) {
+                    return HttpResponse::Ok()
+                        .content_type("application/json; charset=utf-8")
+                        .body(metadata_json);
+                }
+            }
+        } else {
+            return HttpResponse::NotFound().body("Invalid hash");
+        }
+    }
+    HttpResponse::InternalServerError().body("Internal Server Error")
 }
 
 #[get("/file/{id}/metadata/artwork")]
