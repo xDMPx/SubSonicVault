@@ -3,6 +3,8 @@ use std::io::{Read, Seek};
 use std::str::FromStr;
 use std::sync::Mutex;
 
+pub mod services;
+
 pub struct AppState {
     pub base_dir: String,
     pub audiofiles: Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
